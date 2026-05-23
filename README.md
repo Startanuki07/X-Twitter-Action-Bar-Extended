@@ -2,6 +2,12 @@
 
 **Adds Not Interested, Mute, and Block buttons directly to each tweet so you can act on your feed in one click.**
 
+<details open>
+  <summary><small style="color: #666;">Hide image</small></summary>
+  <img src="https://greasyfork.s3.us-east-2.amazonaws.com/hp7z1ipm60k0e8iktpe5q2dmizdm" alt="Image">
+</details>
+
+
 ---
 
 > 💡 **Overview**
