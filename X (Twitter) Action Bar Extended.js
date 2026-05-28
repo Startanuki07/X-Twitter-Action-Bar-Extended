@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.0.0.0
+// @version      1.0.1.3
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -27,7 +27,6 @@
 
 const NOT_INTERESTED_PATH = 'path[d="M12 13.6c1.64-.013 3.278.76 4.284 2.02.114.14.218.282.317.43l-1.202.9c-.088-.102-.177-.197-.272-.289-.844-.823-1.98-1.264-3.125-1.26-1.146-.002-2.282.441-3.129 1.263-.095.092-.185.186-.273.287l-1.2-.902c.1-.149.205-.29.319-.429C8.728 14.364 10.36 13.59 12 13.6zM9.25 8c.828 0 1.5.796 1.5 1.9 0 1.105-.672 1.85-1.5 1.85s-1.5-.745-1.5-1.85c0-1.104.672-1.9 1.5-1.9zm5.5 0c.828 0 1.5.796 1.5 1.9 0 1.105-.672 1.85-1.5 1.85s-1.5-.745-1.5-1.85c0-1.104.672-1.9 1.5-1.9z"]';
 const MUTE_PATH           = 'path[d="M16 22h-2.35l-.275-.219-3.842-3.073 1.424-1.424L14 19.72v-5.477l2-2V22z"]';
-const UNMUTE_PATH         = 'path[d="M16 2v20h-2.35l-.275-.219L8.648 18H6.5C4.567 18 3 16.433 3 14.5v-5C3 7.567 4.567 6 6.5 6h2.148l4.727-3.781.274-.219H16z"]';
 const BLOCK_PATH          = 'path[d="M12 3.75c-4.55 0-8.25 3.69-8.25 8.25 0 1.92.66 3.68 1.75 5.08L17.09 5.5C15.68 4.4 13.92 3.75 12 3.75zm6.5 3.17L6.92 18.5c1.4 1.1 3.16 1.75 5.08 1.75 4.56 0 8.25-3.69 8.25-8.25 0-1.92-.65-3.68-1.75-5.08zM1.75 12C1.75 6.34 6.34 1.75 12 1.75S22.25 6.34 22.25 12 17.66 22.25 12 22.25 1.75 17.66 1.75 12z"]';
 const BLOCK_CONFIRM_SEL   = '[data-testid="confirmationSheetConfirm"]';
 const PROFILE_MORE_PATH   = 'path[d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"]';
@@ -119,6 +118,12 @@ const saveSettings = () => {
             color: rgb(244, 33, 46);
             background-color: rgba(244, 33, 46, 0.15);
         }
+        
+        .mtga-btn.mtga-disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
         .mtga-btn svg {
             width: 18px;
             height: 18px;
@@ -153,6 +158,7 @@ const saveSettings = () => {
             transition: opacity 0.2s ease, background-color 0.15s ease, transform 0.15s ease;
         }
         #mtga-settings-gear:hover { opacity: 1; background-color: rgb(26,140,216); transform: rotate(30deg); }
+        #mtga-settings-gear:focus { opacity: 1; outline: 2px solid rgb(29,155,240); outline-offset: 2px; }
         #mtga-settings-gear svg   { width: 20px; height: 20px; fill: currentColor; pointer-events: none; }
 
         #mtga-panel {
@@ -274,7 +280,6 @@ const saveSettings = () => {
 
         #mtga-panel .mtga-panel-footer { margin-top: 14px; font-size: 11px; text-align: center; }
 
-        body.mtga-silent-dropdown #layers { visibility: hidden !important; }
     `;
     document.head.appendChild(style);
 })();
@@ -288,7 +293,7 @@ const SVG_GEAR           = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d=
 const SVG_SUN  = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3zm1-6h-2v3h2V3zm0 15h-2v3h2v-3zM3 11v2h3v-2H3zm15 0v2h3v-2h-3zM5.99 4.58l-1.42 1.42 2.12 2.12 1.42-1.42L5.99 4.58zm12.02 12.02l-1.42 1.42 2.12 2.12 1.42-1.42-2.12-2.12zM4.57 17.99l1.42 1.42 2.12-2.12-1.42-1.42-2.12 2.12zm12.03-12.02l1.42 1.42 2.12-2.12-1.42-1.42-2.12 2.12z"/></svg>`;
 const SVG_MOON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>`;
 
-const SCRIPT_VERSION = '1.0.3.9';
+const SCRIPT_VERSION = '1.0.1.3';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -339,14 +344,15 @@ const getHeaderInsertionPoint = (tweet) => {
 const addBtnToTweet = (tweet) => {
     if (!tweet) return;
 
-    const pos     = SETTINGS.buttonPosition;
-    const prevPos = tweet.getAttribute('data-mtga-stamped');
-    if (prevPos === pos) return;
+    const pos = SETTINGS.buttonPosition;
+    const isForYouTab  = document.body.getAttribute('data-make-twitter-great-again') === '1';
+    const isDetailPage = /\/status\/\d+/.test(window.location.pathname);
+    const niState      = isForYouTab ? (isDetailPage ? 'dim' : 'active') : 'hidden';
+    const stamp        = `${pos}|${niState}`;
+    if (tweet.getAttribute('data-mtga-stamped') === stamp) return;
 
     tweet.querySelectorAll('.mtga-btn, .mtga-header-group').forEach(el => el.remove());
-    tweet.setAttribute('data-mtga-stamped', pos);
-
-    const isForYouTab = document.body.getAttribute('data-make-twitter-great-again') === '1';
+    tweet.setAttribute('data-mtga-stamped', stamp);
 
     if (pos === 'header') {
         const insertion = getHeaderInsertionPoint(tweet);
@@ -356,21 +362,29 @@ const addBtnToTweet = (tweet) => {
         }
         const group = document.createElement('div');
         group.classList.add('mtga-header-group');
-        if (SETTINGS.showNotInterested && isForYouTab) group.appendChild(makeTweetBtn('mtga-not-interested', 'Not Interested', SVG_NOT_INTERESTED));
-        if (SETTINGS.showMute)                         group.appendChild(makeTweetBtn('mtga-mute',           'Mute',           SVG_MUTE));
-        if (SETTINGS.showBlock)                        group.appendChild(makeTweetBtn('mtga-block',          'Block',          SVG_BLOCK));
+        if (SETTINGS.showNotInterested && niState !== 'hidden') {
+            const niBtn = makeTweetBtn('mtga-not-interested', 'Not Interested', SVG_NOT_INTERESTED);
+            if (niState === 'dim') { niBtn.classList.add('mtga-disabled'); niBtn.setAttribute('aria-disabled', 'true'); }
+            group.appendChild(niBtn);
+        }
+        if (SETTINGS.showMute)  group.appendChild(makeTweetBtn('mtga-mute',  'Mute',  SVG_MUTE));
+        if (SETTINGS.showBlock) group.appendChild(makeTweetBtn('mtga-block', 'Block', SVG_BLOCK));
         insertion.container.insertBefore(group, insertion.before);
     } else {
-        injectToActionBar(tweet, isForYouTab);
+        injectToActionBar(tweet, niState);
     }
 };
 
-const injectToActionBar = (tweet, isForYouTab = false) => {
+const injectToActionBar = (tweet, niState = 'hidden') => {
     const navAction = tweet.querySelector('div[role="group"][id*="id__"]');
     if (!navAction) return;
-    if (SETTINGS.showNotInterested && isForYouTab) navAction.appendChild(makeTweetBtn('mtga-not-interested', 'Not Interested', SVG_NOT_INTERESTED));
-    if (SETTINGS.showMute)                         navAction.appendChild(makeTweetBtn('mtga-mute',           'Mute',           SVG_MUTE));
-    if (SETTINGS.showBlock)                        navAction.appendChild(makeTweetBtn('mtga-block',          'Block',          SVG_BLOCK));
+    if (SETTINGS.showNotInterested && niState !== 'hidden') {
+        const niBtn = makeTweetBtn('mtga-not-interested', 'Not Interested', SVG_NOT_INTERESTED);
+        if (niState === 'dim') { niBtn.classList.add('mtga-disabled'); niBtn.setAttribute('aria-disabled', 'true'); }
+        navAction.appendChild(niBtn);
+    }
+    if (SETTINGS.showMute)  navAction.appendChild(makeTweetBtn('mtga-mute',  'Mute',  SVG_MUTE));
+    if (SETTINGS.showBlock) navAction.appendChild(makeTweetBtn('mtga-block', 'Block', SVG_BLOCK));
 };
 
 const addBtnToTweets = () => {
@@ -406,9 +420,7 @@ const waitForMenuItem = (selector, timeout = 3000) => new Promise((resolve, reje
 });
 
 const waitForNewDropdown = (selector, timeout = 3000) => {
-    const existingNodes = new Set(
-        [...document.querySelectorAll(selector)].map(el => el)
-    );
+    const existingNodes = new Set(document.querySelectorAll(selector));
     return new Promise((resolve, reject) => {
         const layers = document.getElementById('layers') || document.body;
         const observer = new MutationObserver(() => {
@@ -518,7 +530,8 @@ const handleBtnClick = async (e, dropdownSelector) => {
         const muteBtn = tweet.querySelector('.mtga-mute');
         setMuteBtn(muteBtn, false);
         const tabStatus = document.body.getAttribute('data-make-twitter-great-again');
-        if (tabStatus !== '1' && tabStatus !== '2') setTimeout(() => getCardRow(tweet).remove(), 400);
+        if (tabStatus === '1' || tabStatus === '2') return;
+        setTimeout(() => getCardRow(tweet).remove(), 400);
         return;
     }
 
@@ -545,7 +558,7 @@ const handleBtnClick = async (e, dropdownSelector) => {
                 (muteItem.closest('[role="menuitem"]') ?? muteItem).click();
                 setMuteBtn(btn, true);
             } else {
-                caretBtn.click();
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
                 setMuteBtn(btn, false);
                 btn.setAttribute('title', 'Unblock this user first to mute');
                 btn.setAttribute('aria-label', 'Unblock this user first to mute');
@@ -563,12 +576,10 @@ const handleBtnClick = async (e, dropdownSelector) => {
             item.click();
         }
     } catch {
-        document.body.classList.remove('mtga-silent-dropdown');
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         return;
     }
 
-    document.body.classList.remove('mtga-silent-dropdown');
     await sleep(50);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
@@ -588,17 +599,7 @@ const handleBtnClick = async (e, dropdownSelector) => {
     });
 
     const cardRow = getCardRow(tweet);
-    const isNotInterested = dropdownSelector === NOT_INTERESTED_PATH;
-    if (isNotInterested) {
-        const observer = new MutationObserver(() => {
-            observer.disconnect();
-            setTimeout(() => cardRow.remove(), 50);
-        });
-        observer.observe(tweet, { childList: true, subtree: false });
-        setTimeout(() => { observer.disconnect(); cardRow.remove(); }, 800);
-    } else {
-        setTimeout(() => cardRow.remove(), 400);
-    }
+    setTimeout(() => cardRow.remove(), 400);
 };
 
 const handleProfileMuteClick = async () => {
@@ -664,6 +665,7 @@ const buildSettingsPanel = () => {
     const panel = document.createElement('div');
     panel.id = 'mtga-panel';
     panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-label', 'Twitter Action Bar Extended — Settings');
     panel.setAttribute('data-mtga-theme', SETTINGS.panelTheme);
 
@@ -817,6 +819,7 @@ const observeTweets = () => {
     document.addEventListener('click', (e) => {
         if (mtgaExecuting) return;
         if (e.target.closest('.mtga-not-interested')) {
+            if (e.target.closest('.mtga-disabled')) return;
             e.stopPropagation();
             mtgaExecuting = true;
             handleBtnClick(e, NOT_INTERESTED_PATH).finally(() => { mtgaExecuting = false; });
