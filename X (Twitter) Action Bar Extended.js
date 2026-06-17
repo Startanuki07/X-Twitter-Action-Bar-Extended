@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.0.1.3
+// @version      1.2.0.0
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -36,6 +36,9 @@ const SETTINGS_DEFAULTS = {
     showNotInterested: true,
     showMute:          false,
     showBlock:         false,
+    niAction:          'fewer',
+    niActionSeen:      false,
+    niDetailDismissed: false,
     buttonPosition:    'header',
     panelTheme:        'dark',
 };
@@ -160,6 +163,33 @@ const saveSettings = () => {
         #mtga-settings-gear:hover { opacity: 1; background-color: rgb(26,140,216); transform: rotate(30deg); }
         #mtga-settings-gear:focus { opacity: 1; outline: 2px solid rgb(29,155,240); outline-offset: 2px; }
         #mtga-settings-gear svg   { width: 20px; height: 20px; fill: currentColor; pointer-events: none; }
+        
+        #mtga-settings-gear.mtga-has-notice { opacity: 1; }
+        .mtga-notice-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgb(244,33,46);
+            border: 2px solid rgb(29,155,240);
+            pointer-events: none;
+        }
+        
+        .mtga-new-tag {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 1px 5px;
+            border-radius: 8px;
+            background: rgb(244,33,46);
+            color: #fff;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            line-height: 1.4;
+            vertical-align: middle;
+        }
 
         #mtga-panel {
             position: fixed;
@@ -278,6 +308,73 @@ const saveSettings = () => {
             font-family: inherit;
         }
 
+        .mtga-ni-hint {
+            display: none;
+            font-size: 11px;
+            line-height: 1.45;
+            margin-top: 6px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border-left: 2px solid rgb(255, 160, 0);
+        }
+        .mtga-ni-hint.mtga-ni-hint-visible { display: block; }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-hint { color: rgb(180,145,60); background: rgba(255,160,0,0.08); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-ni-hint { color: rgb(140,100,0);  background: rgba(255,160,0,0.10); }
+
+        .mtga-ni-detail {
+            display: none;
+            margin-top: 10px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 12.5px;
+            line-height: 1.5;
+            border: 1px solid;
+        }
+        .mtga-ni-detail.mtga-ni-detail-open { display: block; }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail { background: rgba(255,160,0,0.06); border-color: rgba(255,160,0,0.2); color: #e7e9ea; }
+        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail { background: rgba(255,140,0,0.07); border-color: rgba(255,140,0,0.25); color: #0f1419; }
+
+        .mtga-ni-detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 7px;
+            font-weight: 700;
+            font-size: 12.5px;
+        }
+        .mtga-ni-detail-close {
+            width: 20px; height: 20px;
+            border-radius: 50%; border: none; cursor: pointer;
+            background: transparent; display: flex; align-items: center;
+            justify-content: center; padding: 0; flex-shrink: 0;
+            transition: background-color 0.15s ease;
+        }
+        .mtga-ni-detail-close svg { width: 11px; height: 11px; fill: currentColor; pointer-events: none; }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-close { color: rgb(113,118,123); }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-close:hover { background: rgba(255,255,255,0.1); color: #e7e9ea; }
+        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-close { color: rgb(113,118,123); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-close:hover { background: rgba(0,0,0,0.08); color: #0f1419; }
+
+        .mtga-ni-detail p  { margin: 0 0 5px 0; }
+        .mtga-ni-detail ol { margin: 5px 0 0 0; padding-left: 16px; }
+        .mtga-ni-detail li { margin-bottom: 3px; }
+        .mtga-ni-detail strong { font-weight: 600; }
+
+        .mtga-ni-detail-copy {
+            display: inline-flex; align-items: center; gap: 4px;
+            margin-top: 9px; padding: 3px 9px;
+            border-radius: 20px; border: 1px solid; background: transparent;
+            font-size: 11px; font-weight: 500; cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+            font-family: inherit;
+        }
+        .mtga-ni-detail-copy svg { width: 11px; height: 11px; fill: currentColor; flex-shrink: 0; pointer-events: none; }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-copy { color: rgb(113,118,123); border-color: rgba(255,255,255,0.15); }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-copy:hover { background: rgba(255,255,255,0.07); color: #e7e9ea; }
+        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-copy { color: rgb(113,118,123); border-color: rgba(0,0,0,0.15); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-copy:hover { background: rgba(0,0,0,0.05); color: #0f1419; }
+        .mtga-ni-detail-copy.mtga-copied { color: rgb(0,186,124) !important; }
+
         #mtga-panel .mtga-panel-footer { margin-top: 14px; font-size: 11px; text-align: center; }
 
     `;
@@ -292,8 +389,11 @@ const SVG_BLOCKED        = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d=
 const SVG_GEAR           = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`;
 const SVG_SUN  = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3zm1-6h-2v3h2V3zm0 15h-2v3h2v-3zM3 11v2h3v-2H3zm15 0v2h3v-2h-3zM5.99 4.58l-1.42 1.42 2.12 2.12 1.42-1.42L5.99 4.58zm12.02 12.02l-1.42 1.42 2.12 2.12 1.42-1.42-2.12-2.12zM4.57 17.99l1.42 1.42 2.12-2.12-1.42-1.42-2.12 2.12zm12.03-12.02l1.42 1.42 2.12-2.12-1.42-1.42-2.12 2.12z"/></svg>`;
 const SVG_MOON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>`;
+const SVG_AUTO_NI = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>`;
+const SVG_CLOSE   = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
+const SVG_COPY    = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
 
-const SCRIPT_VERSION = '1.0.1.3';
+const SCRIPT_VERSION = '1.2.0.0';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -443,6 +543,150 @@ const UNMUTE_KEYWORDS = ['unmute', '取消靜音', 'rétablir le son', 'ton açm
 const MUTE_KEYWORDS         = ['mute', '靜音', 'silencier', 'sessize al', 'игнорировать'];
 const MUTE_EXCLUDE_KEYWORDS = ['unmute', '取消', 'conversation', '對話', 'rétablir', 'ton açma', 'звук'];
 const stripQuotes = str => str.replace(/[\u0022\u0027\u2018\u2019\u201c\u201d\u300c\u300d\uff02]/g, '');
+const NI_KEYWORDS = [
+    'not interested',
+    '不感興趣',
+    '不感兴趣',
+    'pas intéressé',
+    'nicht interessiert',
+    'no me interesa',
+    'não estou interessado',
+    'não me interessa',
+    '興味がない',
+    '관심 없음',
+    'ilgilenmiyor',
+    'не интересно',
+    'niet geïnteresseerd',
+    'non mi interessa',
+    'nie interesuje',
+    'не цікавить',
+    'nu mă interesează',
+    'nem érdekel',
+    'nezajímá',
+    'inte intresserad',
+    'ikke interessert',
+    'ikke interesseret',
+    'ei kiinnosta',
+    'δεν με ενδιαφέρει',
+    'לא מעניין',
+    'не ме интересува',
+    'nezaujíma',
+    'no m\'interessa',
+    'nije me zanimaju',
+    'غير مهتم',
+    'علاقه‌ای ندارم',
+    'दिलचस्पी नहीं',
+    'আগ্রহী নই',
+    'دلچسپی نہیں',
+    'tidak tertarik',
+    'tidak berminat',
+    'ไม่สนใจ',
+    'không quan tâm',
+    'hindi ako interesado',
+];
+
+const NI_FEWER_KEYWORDS = [
+    'show fewer',
+    'see fewer',
+    '減少顯示',
+    '减少显示',
+    'voir moins',
+    'weniger',
+    'ver menos',
+    '少ない',
+    '덜 보기',
+    'az göster',
+    'меньше',
+    'minder zien',
+    'meno post',
+    'mniej postów',
+    'менше',
+    'mai puțin',
+    'kevesebb',
+    'méně',
+    'färre',
+    'færre',
+    'vähemmän',
+    'λιγότερα',
+    'פחות פוסטים',
+    'по-малко',
+    'menej',
+    'menys',
+    'manje',
+    'عرض أقل',
+    'کمتر',
+    'कम पोस्ट',
+    'কম পোস্ট',
+    'کم پوسٹ',
+    'lebih sedikit',
+    'kurang',
+    'โพสต์น้อยลง',
+    'ít hơn',
+    'mas kaunti',
+];
+
+const NI_IRRELEVANT_KEYWORDS = [
+    'isn\u2019t relevant',
+    "isn't relevant",
+    'not relevant',
+    'relevant',
+    'irrelevant',
+    '不相關',
+    '不相关',
+    'pas pertinent',
+    'nicht relevant',
+    'no relevante',
+    'não relevante',
+    '関係ない',
+    '관련 없',
+    'alakasız',
+    'не относится',
+    'niet relevant',
+    'non pertinente',
+    'nieistotny',
+    'не стосується',
+    'nu este relevant',
+    'nem releváns',
+    'není relevantní',
+    'inte relevant',
+    'ikke relevant',
+    'ei osuva',
+    'δεν σχετίζεται',
+    'לא רלוונטי',
+    'не е релевантно',
+    'nie je relevantný',
+    'no és rellevant',
+    'nije relevantno',
+    'غير ذي صلة',
+    'نامربوط',
+    'अप्रासंगिक',
+    'অপ্রাসঙ্গিক',
+    'غیر متعلقہ',
+    'tidak relevan',
+    'tidak berkaitan',
+    'ไม่เกี่ยวข้อง',
+    'không liên quan',
+    'hindi kaugnay',
+];
+
+const waitForNIToast = (keywords, timeout = 1500) => new Promise((resolve, reject) => {
+    const find = () => {
+        const btns = document.querySelectorAll('button');
+        return [...btns].find(b =>
+            keywords.some(kw =>
+                (b.textContent ?? '').toLowerCase().includes(kw.toLowerCase())
+            )
+        ) ?? null;
+    };
+    const existing = find();
+    if (existing) return resolve(existing);
+    const observer = new MutationObserver(() => {
+        const el = find();
+        if (el) { clearTimeout(timer); observer.disconnect(); resolve(el); }
+    });
+    const timer = setTimeout(() => { observer.disconnect(); reject(new Error('NI toast timeout')); }, timeout);
+    observer.observe(document.body, { childList: true, subtree: true });
+});
 
 const waitForConfirmDialog = () => new Promise(resolve => {
     const existing = document.querySelector('[data-testid="confirmationSheetDialog"]');
@@ -494,6 +738,15 @@ const getCardRow = (tweet) => {
     }
     return tweet.closest('div[data-testid]') ?? tweet.parentElement?.parentElement ?? tweet;
 };
+
+const THIRD_PARTY_SELECTORS = [
+    'div[role="group"][id*="id__"]',
+    '.mtga-header-group',
+    '.my-grok-robot-btn',
+    '.my-commander-btn',
+    '.custom-copy-icon',
+    '.force-media-copy-btn',
+];
 
 const handleBtnClick = async (e, dropdownSelector) => {
     if (!(e.target instanceof Element)) return;
@@ -571,9 +824,17 @@ const handleBtnClick = async (e, dropdownSelector) => {
                 return;
             }
         } else {
-            const niPath = await waitForMenuItem(NOT_INTERESTED_PATH, 3000);
-            const item = niPath.closest('[role="menuitem"]') ?? niPath;
-            item.click();
+            const dropdown = await waitForNewDropdown('[data-testid="Dropdown"],[data-testid="sheetDialog"]', 3000);
+            const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
+            const niItem = items.find(el =>
+                NI_KEYWORDS.some(kw => stripQuotes(el.innerText).toLowerCase().includes(kw.toLowerCase()))
+            );
+            if (niItem) {
+                (niItem.closest('[role="menuitem"]') ?? niItem).click();
+            } else {
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                return;
+            }
         }
     } catch {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -584,16 +845,27 @@ const handleBtnClick = async (e, dropdownSelector) => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
     const tabStatus = document.body.getAttribute('data-make-twitter-great-again');
-    if (tabStatus === '1' || tabStatus === '2') return;
+    if (tabStatus === '1' || tabStatus === '2') {
+        if (!isMute) {
+            const cardRow = getCardRow(tweet);
 
-    const THIRD_PARTY_SELECTORS = [
-        'div[role="group"][id*="id__"]',
-        '.mtga-header-group',
-        '.my-grok-robot-btn',
-        '.my-commander-btn',
-        '.custom-copy-icon',
-        '.force-media-copy-btn',
-    ];
+            THIRD_PARTY_SELECTORS.forEach(sel => tweet.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; }));
+
+            if (SETTINGS.niAction !== 'off') {
+                try {
+                    const keywords = SETTINGS.niAction === 'irrelevant' ? NI_IRRELEVANT_KEYWORDS : NI_FEWER_KEYWORDS;
+                    const toastBtn = await waitForNIToast(keywords, 1000);
+                    toastBtn.click();
+                } catch {
+                    
+                }
+            }
+
+            setTimeout(() => cardRow.remove(), 400);
+        }
+        return;
+    }
+
     THIRD_PARTY_SELECTORS.forEach(sel => {
         tweet.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
     });
@@ -660,6 +932,12 @@ const buildSettingsPanel = () => {
     gear.setAttribute('aria-label', 'Settings');
     gear.setAttribute('title', 'Settings');
     gear.innerHTML = SVG_GEAR;
+    if (!SETTINGS.niActionSeen) {
+        gear.classList.add('mtga-has-notice');
+        const noticeDot = document.createElement('span');
+        noticeDot.className = 'mtga-notice-dot';
+        gear.appendChild(noticeDot);
+    }
     document.body.appendChild(gear);
 
     const panel = document.createElement('div');
@@ -683,6 +961,34 @@ const buildSettingsPanel = () => {
         ${makeToggleRow('showMute',          SVG_MUTE,           'Mute',           "Mute user silently — they won't know")}
         ${makeToggleRow('showBlock',         SVG_BLOCK,          'Block',          'Block user — they cannot see your tweets')}
         <hr class="mtga-divider">
+        <span class="mtga-section-label">After Not Interested</span>
+        <div class="mtga-toggle-row" style="align-items:flex-start; flex-direction:column; gap:6px;">
+            <div class="mtga-toggle-label">${SVG_AUTO_NI}<span>Auto-confirm</span></div>
+            <div class="mtga-toggle-desc">Click an extra option from the thank-you toast automatically.</div>
+            <div class="mtga-radio-group" style="width:100%; margin:2px 0 0 0;">
+                <button class="mtga-radio-btn ${SETTINGS.niAction === 'off'        ? 'mtga-radio-active' : ''}" data-ni-action="off">Off</button>
+                <button class="mtga-radio-btn ${SETTINGS.niAction === 'fewer'      ? 'mtga-radio-active' : ''}" data-ni-action="fewer">Reduce posts</button>
+                <button class="mtga-radio-btn ${SETTINGS.niAction === 'irrelevant' ? 'mtga-radio-active' : ''}" data-ni-action="irrelevant">Not relevant${SETTINGS.niActionSeen ? '' : ' <span class="mtga-new-tag">NEW</span>'}</button>
+            </div>
+            <div class="mtga-ni-hint ${SETTINGS.niAction === 'irrelevant' ? 'mtga-ni-hint-visible' : ''}">
+                ⚠️ First click after page load: tap 👎🏻, then tap <strong>Undo</strong> once — auto-confirm activates from the second click onward.
+            </div>
+            <div class="mtga-ni-detail ${SETTINGS.niAction === 'irrelevant' && !SETTINGS.niDetailDismissed ? 'mtga-ni-detail-open' : ''}">
+                <div class="mtga-ni-detail-header">
+                    <span>⚠️ Experimental Feature</span>
+                    <button class="mtga-ni-detail-close" aria-label="Close">${SVG_CLOSE}</button>
+                </div>
+                <p>Reports posts as <strong>"not interested"</strong> based on topic type, rather than reducing posts from that user.</p>
+                <p><strong>Known limitation</strong> — on every fresh page load, the first 👎 tap requires one extra step:</p>
+                <ol>
+                    <li>Tap 👎 on any post.</li>
+                    <li>Tap <strong>Undo</strong> in the thank-you toast.</li>
+                    <li>Tap 👎 again — auto-confirm now works normally.</li>
+                </ol>
+                <br><button class="mtga-ni-detail-copy" aria-label="Copy this message">${SVG_COPY} Copy text</button>
+            </div>
+        </div>
+        <hr class="mtga-divider">
         <span class="mtga-section-label">Button Position</span>
         <div class="mtga-radio-group">
             <button class="mtga-radio-btn ${SETTINGS.buttonPosition === 'header'    ? 'mtga-radio-active' : ''}" data-pos="header">Header</button>
@@ -692,6 +998,7 @@ const buildSettingsPanel = () => {
     `;
     document.body.appendChild(panel);
 
+    // Toggle switches
     panel.querySelectorAll('.mtga-switch input').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             SETTINGS[checkbox.dataset.key] = checkbox.checked;
@@ -700,21 +1007,81 @@ const buildSettingsPanel = () => {
         });
     });
 
-    panel.querySelectorAll('.mtga-radio-btn').forEach(btn => {
+    // NI action radio (Off / Reduce posts / Not relevant) — mutual exclusive
+    panel.querySelectorAll('[data-ni-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            SETTINGS.niAction = btn.dataset.niAction;
+            // Clicking "Not relevant" dismisses its new-feature notice (NEW tag + gear dot),
+            // regardless of which option was previously active — first click always clears it.
+            if (btn.dataset.niAction === 'irrelevant' && !SETTINGS.niActionSeen) {
+                SETTINGS.niActionSeen = true;
+                panel.querySelector('.mtga-new-tag')?.remove();
+                gear.classList.remove('mtga-has-notice');
+                gear.querySelector('.mtga-notice-dot')?.remove();
+            }
+            saveSettings();
+            panel.querySelectorAll('[data-ni-action]').forEach(b => b.classList.remove('mtga-radio-active'));
+            btn.classList.add('mtga-radio-active');
+            // Show first-click warning only when "Not relevant" is selected
+            const hint = panel.querySelector('.mtga-ni-hint');
+            if (hint) hint.classList.toggle('mtga-ni-hint-visible', SETTINGS.niAction === 'irrelevant');
+            // Show inline detail view when "Not relevant" is selected — but respect a prior
+            // dismissal: once the user has closed this explanation via ×, re-selecting
+            // "Not relevant" should not force it back open.
+            const detail = panel.querySelector('.mtga-ni-detail');
+            if (detail) detail.classList.toggle('mtga-ni-detail-open', SETTINGS.niAction === 'irrelevant' && !SETTINGS.niDetailDismissed);
+        });
+    });
+
+    // ── NI detail view (inline inside panel) ──────────────────────────────────
+    const NI_DETAIL_TEXT =
+        '⚠️ Experimental Feature — Not Relevant\n\n' +
+        'This feature reports posts as "not interested" based on topic type.\n\n' +
+        'Known limitation: on every fresh page load, the first 👎 tap requires one extra step:\n' +
+        '  1. Tap 👎 on a post.\n' +
+        '  2. Tap "Undo" in the thank-you toast.\n' +
+        '  3. Tap 👎 again — auto-confirm will now work normally.\n\n' +
+        'From the second tap onward, auto-confirm activates without any extra step.';
+
+    const niDetail = panel.querySelector('.mtga-ni-detail');
+
+    // Close button inside detail view — dismissal is independent of niAction; closing this
+    // explanation does not change the user's Not-relevant feature setting, only whether the
+    // detail auto-expands again on a future panel open.
+    niDetail.querySelector('.mtga-ni-detail-close').addEventListener('click', () => {
+        niDetail.classList.remove('mtga-ni-detail-open');
+        SETTINGS.niDetailDismissed = true;
+        saveSettings();
+    });
+
+    // Copy button inside detail view
+    niDetail.querySelector('.mtga-ni-detail-copy').addEventListener('click', function () {
+        navigator.clipboard?.writeText(NI_DETAIL_TEXT).then(() => {
+            const orig = this.innerHTML;
+            this.innerHTML = `${SVG_COPY} Copied!`;
+            this.classList.add('mtga-copied');
+            setTimeout(() => { this.innerHTML = orig; this.classList.remove('mtga-copied'); }, 1800);
+        }).catch(() => {});
+    });
+
+    // Position radio
+    panel.querySelectorAll('.mtga-radio-btn[data-pos]').forEach(btn => {
         btn.addEventListener('click', () => {
             SETTINGS.buttonPosition = btn.dataset.pos;
             saveSettings();
-            panel.querySelectorAll('.mtga-radio-btn').forEach(b => b.classList.remove('mtga-radio-active'));
+            panel.querySelectorAll('.mtga-radio-btn[data-pos]').forEach(b => b.classList.remove('mtga-radio-active'));
             btn.classList.add('mtga-radio-active');
             refreshAllTweets();
         });
     });
 
+    // Theme toggle (top-right circle button)
     panel.querySelector('.mtga-theme-toggle').addEventListener('click', () => {
         const next = SETTINGS.panelTheme === 'dark' ? 'light' : 'dark';
         SETTINGS.panelTheme = next;
         saveSettings();
         panel.setAttribute('data-mtga-theme', next);
+        // Swap icon: show sun when dark (clicking will go light), show moon when light
         panel.querySelector('.mtga-theme-toggle').innerHTML = next === 'dark' ? SVG_SUN : SVG_MOON;
     });
 
