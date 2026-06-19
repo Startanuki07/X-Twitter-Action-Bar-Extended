@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.2.0.0
+// @version      1.3.0.0
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -32,23 +32,38 @@ const BLOCK_CONFIRM_SEL   = '[data-testid="confirmationSheetConfirm"]';
 const PROFILE_MORE_PATH   = 'path[d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"]';
 
 const SETTINGS_KEY = 'mtga_settings';
+const CARET_RETRY_LIMIT = 5;
 const SETTINGS_DEFAULTS = {
     showNotInterested: true,
     showMute:          false,
     showBlock:         false,
-    niAction:          'fewer',
-    niActionSeen:      false,
-    niDetailDismissed: false,
+    niAction:          'off',
     buttonPosition:    'header',
     panelTheme:        'dark',
 };
 
 let SETTINGS = { ...SETTINGS_DEFAULTS };
 
+const VALID_NI_ACTIONS    = ['off', 'fewer', 'irrelevant', 'pick'];
+const VALID_POSITIONS     = ['header', 'actionbar'];
+const VALID_PANEL_THEMES  = ['dark', 'light'];
+const sanitizeSettings = (raw) => {
+    const merged = { ...SETTINGS_DEFAULTS, ...raw };
+    return {
+        ...merged,
+        niAction:       VALID_NI_ACTIONS.includes(merged.niAction)       ? merged.niAction       : SETTINGS_DEFAULTS.niAction,
+        buttonPosition: VALID_POSITIONS.includes(merged.buttonPosition)   ? merged.buttonPosition : SETTINGS_DEFAULTS.buttonPosition,
+        panelTheme:     VALID_PANEL_THEMES.includes(merged.panelTheme)   ? merged.panelTheme     : SETTINGS_DEFAULTS.panelTheme,
+        showNotInterested: !!merged.showNotInterested,
+        showMute:          !!merged.showMute,
+        showBlock:         !!merged.showBlock,
+    };
+};
+
 const loadSettings = () => {
     try {
         const stored = GM_getValue(SETTINGS_KEY, null);
-        if (stored) SETTINGS = { ...SETTINGS_DEFAULTS, ...JSON.parse(stored) };
+        if (stored) SETTINGS = sanitizeSettings(JSON.parse(stored));
     } catch (e) {
         console.warn('[MTGA] Failed to load settings, using defaults:', e);
     }
@@ -163,33 +178,6 @@ const saveSettings = () => {
         #mtga-settings-gear:hover { opacity: 1; background-color: rgb(26,140,216); transform: rotate(30deg); }
         #mtga-settings-gear:focus { opacity: 1; outline: 2px solid rgb(29,155,240); outline-offset: 2px; }
         #mtga-settings-gear svg   { width: 20px; height: 20px; fill: currentColor; pointer-events: none; }
-        
-        #mtga-settings-gear.mtga-has-notice { opacity: 1; }
-        .mtga-notice-dot {
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: rgb(244,33,46);
-            border: 2px solid rgb(29,155,240);
-            pointer-events: none;
-        }
-        
-        .mtga-new-tag {
-            display: inline-block;
-            margin-left: 5px;
-            padding: 1px 5px;
-            border-radius: 8px;
-            background: rgb(244,33,46);
-            color: #fff;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            line-height: 1.4;
-            vertical-align: middle;
-        }
 
         #mtga-panel {
             position: fixed;
@@ -197,15 +185,33 @@ const saveSettings = () => {
             right: 24px;
             z-index: 9001;
             width: 288px;
+            
+            max-height: calc(100vh - 88px);
+            overflow-y: auto;
+            
+            scrollbar-width: thin;
+            scrollbar-color: rgba(113,118,123,0.4) transparent;
             border-radius: 16px;
             padding: 20px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 14px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.28);
-            display: none;
-            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+            
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(8px);
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s,
+                        background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
-        #mtga-panel.mtga-panel-open { display: block; }
+        #mtga-panel.mtga-panel-open {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0s,
+                        background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
 
         #mtga-panel[data-mtga-theme="dark"] {
             background-color: #1e2732;
@@ -241,9 +247,29 @@ const saveSettings = () => {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 6px;
             margin-bottom: 4px;
         }
-        #mtga-panel h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+        #mtga-panel h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; flex: 1; }
+
+        .mtga-panel-close {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background-color 0.15s ease;
+            padding: 0;
+        }
+        .mtga-panel-close svg { width: 14px; height: 14px; fill: currentColor; pointer-events: none; }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-panel-close { background: rgba(255,255,255,0.10); color: rgb(113,118,123); }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-panel-close:hover { background: rgba(255,255,255,0.18); color: #e7e9ea; }
+        #mtga-panel[data-mtga-theme="light"] .mtga-panel-close { background: rgba(0,0,0,0.06); color: rgb(113,118,123); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-panel-close:hover { background: rgba(0,0,0,0.12); color: #0f1419; }
 
         .mtga-theme-toggle {
             width: 28px;
@@ -307,75 +333,146 @@ const saveSettings = () => {
             transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
             font-family: inherit;
         }
-
-        .mtga-ni-hint {
-            display: none;
-            font-size: 11px;
-            line-height: 1.45;
-            margin-top: 6px;
-            padding: 6px 8px;
-            border-radius: 6px;
-            border-left: 2px solid rgb(255, 160, 0);
-        }
-        .mtga-ni-hint.mtga-ni-hint-visible { display: block; }
-        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-hint { color: rgb(180,145,60); background: rgba(255,160,0,0.08); }
-        #mtga-panel[data-mtga-theme="light"] .mtga-ni-hint { color: rgb(140,100,0);  background: rgba(255,160,0,0.10); }
-
-        .mtga-ni-detail {
-            display: none;
-            margin-top: 10px;
-            padding: 12px 14px;
-            border-radius: 10px;
-            font-size: 12.5px;
-            line-height: 1.5;
-            border: 1px solid;
-        }
-        .mtga-ni-detail.mtga-ni-detail-open { display: block; }
-        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail { background: rgba(255,160,0,0.06); border-color: rgba(255,160,0,0.2); color: #e7e9ea; }
-        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail { background: rgba(255,140,0,0.07); border-color: rgba(255,140,0,0.25); color: #0f1419; }
-
-        .mtga-ni-detail-header {
+        
+        .mtga-radio-btn.mtga-legacy { opacity: 0.55; font-size: 11.5px; }
+        .mtga-radio-btn.mtga-legacy:hover { opacity: 0.85; }
+        .mtga-radio-btn.mtga-legacy.mtga-radio-active { opacity: 1; }
+        
+        .mtga-legacy-toggle {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 7px;
-            font-weight: 700;
-            font-size: 12.5px;
-        }
-        .mtga-ni-detail-close {
-            width: 20px; height: 20px;
-            border-radius: 50%; border: none; cursor: pointer;
-            background: transparent; display: flex; align-items: center;
-            justify-content: center; padding: 0; flex-shrink: 0;
-            transition: background-color 0.15s ease;
-        }
-        .mtga-ni-detail-close svg { width: 11px; height: 11px; fill: currentColor; pointer-events: none; }
-        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-close { color: rgb(113,118,123); }
-        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-close:hover { background: rgba(255,255,255,0.1); color: #e7e9ea; }
-        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-close { color: rgb(113,118,123); }
-        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-close:hover { background: rgba(0,0,0,0.08); color: #0f1419; }
-
-        .mtga-ni-detail p  { margin: 0 0 5px 0; }
-        .mtga-ni-detail ol { margin: 5px 0 0 0; padding-left: 16px; }
-        .mtga-ni-detail li { margin-bottom: 3px; }
-        .mtga-ni-detail strong { font-weight: 600; }
-
-        .mtga-ni-detail-copy {
-            display: inline-flex; align-items: center; gap: 4px;
-            margin-top: 9px; padding: 3px 9px;
-            border-radius: 20px; border: 1px solid; background: transparent;
-            font-size: 11px; font-weight: 500; cursor: pointer;
-            transition: background-color 0.15s ease, color 0.15s ease;
+            gap: 5px;
+            margin-top: 8px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            cursor: pointer;
             font-family: inherit;
+            font-size: 11px;
+            font-weight: 500;
+            transition: color 0.15s ease;
         }
-        .mtga-ni-detail-copy svg { width: 11px; height: 11px; fill: currentColor; flex-shrink: 0; pointer-events: none; }
-        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-copy { color: rgb(113,118,123); border-color: rgba(255,255,255,0.15); }
-        #mtga-panel[data-mtga-theme="dark"]  .mtga-ni-detail-copy:hover { background: rgba(255,255,255,0.07); color: #e7e9ea; }
-        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-copy { color: rgb(113,118,123); border-color: rgba(0,0,0,0.15); }
-        #mtga-panel[data-mtga-theme="light"] .mtga-ni-detail-copy:hover { background: rgba(0,0,0,0.05); color: #0f1419; }
-        .mtga-ni-detail-copy.mtga-copied { color: rgb(0,186,124) !important; }
+        .mtga-legacy-toggle svg {
+            width: 12px; height: 12px; fill: none; stroke: currentColor;
+            stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+        .mtga-legacy-toggle.open svg { transform: rotate(180deg); }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-legacy-toggle { color: rgba(255,255,255,0.38); }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-legacy-toggle:hover { color: rgba(255,255,255,0.65); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-legacy-toggle { color: rgba(0,0,0,0.38); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-legacy-toggle:hover { color: rgba(0,0,0,0.60); }
+        .mtga-legacy-section {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.22s ease, opacity 0.18s ease, margin-top 0.18s ease;
+            opacity: 0;
+            margin-top: 0;
+        }
+        .mtga-legacy-section.open {
+            max-height: 80px;
+            opacity: 1;
+            margin-top: 6px;
+        }
 
         #mtga-panel .mtga-panel-footer { margin-top: 14px; font-size: 11px; text-align: center; }
+
+        .mtga-picker {
+            position: fixed;
+            z-index: 9100;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 12px;
+            border-radius: 12px;
+            width: 240px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.30);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            
+            animation: mtga-picker-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+            transform-origin: right center;
+            
+            pointer-events: none;
+            animation-fill-mode: forwards;
+        }
+        
+        .mtga-picker.mtga-picker-ready { pointer-events: auto; }
+        @keyframes mtga-picker-in {
+            
+            from { opacity: 0; transform: translateX(10px) scale(0.95); }
+            to   { opacity: 1; transform: translateX(0)    scale(1); }
+        }
+        
+        .mtga-picker[data-side="right"] {
+            transform-origin: left center;
+            animation-name: mtga-picker-in-left;
+        }
+        @keyframes mtga-picker-in-left {
+            from { opacity: 0; transform: translateX(-10px) scale(0.95); }
+            to   { opacity: 1; transform: translateX(0)     scale(1); }
+        }
+        
+        .mtga-picker[data-mtga-theme="dark"] {
+            background: #1e2732;
+            color: #e7e9ea;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .mtga-picker[data-mtga-theme="light"] {
+            background: #ffffff;
+            color: #0f1419;
+            border: 1px solid rgba(0,0,0,0.12);
+        }
+        
+        .mtga-picker-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 2px;
+            opacity: 0.6;
+        }
+        
+        .mtga-picker-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: inherit;
+            text-align: left;
+            transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+        }
+        .mtga-picker-btn svg { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
+        
+        .mtga-picker[data-mtga-theme="dark"]  .mtga-picker-btn { color: #e7e9ea; }
+        .mtga-picker[data-mtga-theme="dark"]  .mtga-picker-btn:hover {
+            background: rgba(255,160,0,0.12); border-color: rgba(255,160,0,0.3); color: rgb(255,160,0);
+        }
+        
+        .mtga-picker[data-mtga-theme="light"] .mtga-picker-btn { color: #0f1419; }
+        .mtga-picker[data-mtga-theme="light"] .mtga-picker-btn:hover {
+            background: rgba(255,140,0,0.10); border-color: rgba(255,140,0,0.30); color: rgb(200,110,0);
+        }
+        
+        .mtga-picker-bar {
+            height: 2px;
+            border-radius: 1px;
+            background: rgba(255,160,0,0.45);
+            transform-origin: left;
+            animation: mtga-picker-bar var(--mtga-picker-timeout, 8s) linear forwards;
+        }
+        @keyframes mtga-picker-bar {
+            from { transform: scaleX(1); }
+            to   { transform: scaleX(0); }
+        }
 
     `;
     document.head.appendChild(style);
@@ -393,7 +490,9 @@ const SVG_AUTO_NI = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v1
 const SVG_CLOSE   = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
 const SVG_COPY    = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
 
-const SCRIPT_VERSION = '1.2.0.0';
+const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
+    ? GM_info.script.version
+    : '1.3.0.9';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -457,6 +556,12 @@ const addBtnToTweet = (tweet) => {
     if (pos === 'header') {
         const insertion = getHeaderInsertionPoint(tweet);
         if (!insertion) {
+            const retries = parseInt(tweet.getAttribute('data-mtga-caret-retries') ?? '0', 10);
+            if (retries >= CARET_RETRY_LIMIT) {
+                tweet.setAttribute('data-mtga-stamped', 'no-caret');
+                return;
+            }
+            tweet.setAttribute('data-mtga-caret-retries', retries + 1);
             tweet.removeAttribute('data-mtga-stamped');
             return;
         }
@@ -670,13 +775,30 @@ const NI_IRRELEVANT_KEYWORDS = [
 ];
 
 const waitForNIToast = (keywords, timeout = 1500) => new Promise((resolve, reject) => {
-    const find = () => {
-        const btns = document.querySelectorAll('button');
+    const TOAST_SCOPES = [
+        '[data-testid="toast"]',
+        '#layers',
+    ];
+    const MTGA_OWN_CONTAINERS = ['#mtga-panel', '#mtga-ni-picker'];
+    const isOwnUI = (el) => MTGA_OWN_CONTAINERS.some(sel => el.closest(sel));
+    const matchBtn = (root) => {
+        const btns = root.querySelectorAll('button');
         return [...btns].find(b =>
+            !isOwnUI(b) &&
             keywords.some(kw =>
                 (b.textContent ?? '').toLowerCase().includes(kw.toLowerCase())
             )
         ) ?? null;
+    };
+    const find = () => {
+        for (const sel of TOAST_SCOPES) {
+            const containers = document.querySelectorAll(sel);
+            for (const c of containers) {
+                const hit = matchBtn(c);
+                if (hit) return hit;
+            }
+        }
+        return matchBtn(document) ?? null;
     };
     const existing = find();
     if (existing) return resolve(existing);
@@ -687,6 +809,35 @@ const waitForNIToast = (keywords, timeout = 1500) => new Promise((resolve, rejec
     const timer = setTimeout(() => { observer.disconnect(); reject(new Error('NI toast timeout')); }, timeout);
     observer.observe(document.body, { childList: true, subtree: true });
 });
+
+const waitForClickable = (el, timeout = 2000) => new Promise((resolve, reject) => {
+    if (getComputedStyle(el).pointerEvents !== 'none') return resolve(el);
+    const start = Date.now();
+    const poll = () => {
+        if (getComputedStyle(el).pointerEvents !== 'none') return resolve(el);
+        if (Date.now() - start >= timeout) return reject(new Error('waitForClickable: timed out'));
+        setTimeout(poll, 30);
+    };
+    setTimeout(poll, 30);
+});
+
+const callFiberOnClick = (el, maxDepth = 10) => {
+    const fiberKey = Object.keys(el).find(k =>
+        k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+    );
+    if (!fiberKey) { el.click(); return false; }
+    let fiber = el[fiberKey];
+    for (let d = 0; d <= maxDepth && fiber; d++) {
+        const props = fiber.memoizedProps ?? fiber.pendingProps;
+        if (props?.onClick) {
+            props.onClick();
+            return true;
+        }
+        fiber = fiber.return;
+    }
+    el.click();
+    return false;
+};
 
 const waitForConfirmDialog = () => new Promise(resolve => {
     const existing = document.querySelector('[data-testid="confirmationSheetDialog"]');
@@ -748,6 +899,89 @@ const THIRD_PARTY_SELECTORS = [
     '.force-media-copy-btn',
 ];
 
+const PICKER_TIMEOUT_MS   = 8000;
+const NI_TOAST_TIMEOUT_MS = 3000;
+
+const showNIPickerMenu = (anchorRect) => new Promise(resolve => {
+
+    document.getElementById('mtga-ni-picker')?.remove();
+
+    const picker = document.createElement('div');
+    picker.id = 'mtga-ni-picker';
+    picker.className = 'mtga-picker';
+    picker.setAttribute('role', 'dialog');
+    picker.setAttribute('aria-label', 'Interactive Mode — choose effect');
+    picker.setAttribute('data-mtga-theme', SETTINGS.panelTheme);
+    picker.style.setProperty('--mtga-picker-timeout', `${PICKER_TIMEOUT_MS}ms`);
+
+    picker.innerHTML = `
+        <div class="mtga-picker-label">Interactive Mode — choose effect</div>
+        <button class="mtga-picker-btn" data-pick="fewer" aria-label="Reduce posts from this user">
+            ${SVG_NOT_INTERESTED}<span>Reduce posts from user</span>
+        </button>
+        <button class="mtga-picker-btn" data-pick="irrelevant" aria-label="Mark as not relevant">
+            ${SVG_AUTO_NI}<span>Not relevant to me</span>
+        </button>
+        <div class="mtga-picker-bar"></div>
+    `;
+
+    const rect = anchorRect;
+    const PICKER_W = 240;
+    const PICKER_H = 130;
+    const GAP = 4;
+
+    let left = rect.left - PICKER_W - GAP;
+    const side = left < 8 ? 'right' : 'left';
+    if (left < 8) {
+        left = rect.right + GAP;
+    }
+    if (left + PICKER_W > window.innerWidth - 8) left = window.innerWidth - PICKER_W - 8;
+
+    picker.setAttribute('data-side', side);
+
+    const btnMidY = rect.top + rect.height / 2;
+    let top = btnMidY - PICKER_H / 2;
+    if (top + PICKER_H > window.innerHeight - 8) top = window.innerHeight - PICKER_H - 8;
+    if (top < 8) top = 8;
+
+    picker.style.left = `${left}px`;
+    picker.style.top  = `${top}px`;
+
+    document.body.appendChild(picker);
+
+    const actualH = picker.offsetHeight;
+    const refinedTop = btnMidY - actualH / 2;
+    const clampedTop = Math.min(Math.max(refinedTop, 8), window.innerHeight - actualH - 8);
+    picker.style.top = `${clampedTop}px`;
+
+    setTimeout(() => picker.classList.add('mtga-picker-ready'), 150);
+
+    const cleanup = (choice) => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', onKey, true);
+        document.removeEventListener('click',   onOutside, true);
+        picker.remove();
+        resolve(choice);
+    };
+
+    picker.querySelectorAll('.mtga-picker-btn').forEach(btn => {
+        btn.addEventListener('click', () => cleanup(btn.dataset.pick));
+    });
+
+    const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); cleanup(null); } };
+    document.addEventListener('keydown', onKey, true);
+
+    let outsideReady = false;
+    requestAnimationFrame(() => { outsideReady = true; });
+    const onOutside = (ev) => {
+        if (!outsideReady) return;
+        if (!picker.contains(ev.target)) cleanup(null);
+    };
+    document.addEventListener('click', onOutside, true);
+
+    const timer = setTimeout(() => cleanup(null), PICKER_TIMEOUT_MS);
+});
+
 const handleBtnClick = async (e, dropdownSelector) => {
     if (!(e.target instanceof Element)) return;
     const btn = e.target.closest('.mtga-btn');
@@ -755,7 +989,7 @@ const handleBtnClick = async (e, dropdownSelector) => {
     const tweet = btn.closest('article');
     if (!tweet) return;
 
-    document.body.setAttribute('data-pop-open', 'true');
+    const btnRect = btn.getBoundingClientRect();
 
     const caretBtn = tweet.querySelector('[data-testid="caret"]');
     if (!caretBtn) return;
@@ -773,7 +1007,16 @@ const handleBtnClick = async (e, dropdownSelector) => {
             const confirmDialog = await waitForConfirmDialog();
             if (confirmDialog) {
                 const confirmBtn = confirmDialog.querySelector(BLOCK_CONFIRM_SEL);
-                if (confirmBtn) confirmBtn.click();
+                if (confirmBtn) {
+                    confirmBtn.click();
+                } else {
+                    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                    console.warn('[MTGA] Block: confirmationSheetConfirm not found — action aborted');
+                    return;
+                }
+            } else {
+                console.warn('[MTGA] Block: confirm dialog timed out — UI state not updated');
+                return;
             }
         } catch {
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -788,7 +1031,29 @@ const handleBtnClick = async (e, dropdownSelector) => {
         return;
     }
 
-    caretBtn.click();
+    let niFiberOnClick = null;
+    if (!isMute) {
+        const fiberKey = Object.keys(caretBtn).find(k =>
+            k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+        );
+        if (fiberKey) {
+            let fiber = caretBtn[fiberKey];
+            for (let d = 0; d <= 30 && fiber; d++) {
+                const props = fiber.memoizedProps ?? fiber.pendingProps;
+                if (props?.feedbackItems?.[0]?.onClick) {
+                    niFiberOnClick = props.feedbackItems[0].onClick;
+                    break;
+                }
+                fiber = fiber.return;
+            }
+        }
+    }
+
+    if (niFiberOnClick) {
+        niFiberOnClick();
+    } else {
+        caretBtn.click();
+    }
 
     try {
         if (isMute) {
@@ -823,7 +1088,7 @@ const handleBtnClick = async (e, dropdownSelector) => {
                 }, 1500);
                 return;
             }
-        } else {
+        } else if (!niFiberOnClick) {
             const dropdown = await waitForNewDropdown('[data-testid="Dropdown"],[data-testid="sheetDialog"]', 3000);
             const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
             const niItem = items.find(el =>
@@ -841,8 +1106,10 @@ const handleBtnClick = async (e, dropdownSelector) => {
         return;
     }
 
-    await sleep(50);
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    if (isMute || !niFiberOnClick) {
+        await sleep(50);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
 
     const tabStatus = document.body.getAttribute('data-make-twitter-great-again');
     if (tabStatus === '1' || tabStatus === '2') {
@@ -851,11 +1118,89 @@ const handleBtnClick = async (e, dropdownSelector) => {
 
             THIRD_PARTY_SELECTORS.forEach(sel => tweet.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; }));
 
+            const UNDO_KEYWORDS = [
+                'undo',
+                '復原',
+                '撤销',
+                'annuler',
+                'rückgängig',
+                'deshacer',
+                'desfazer',
+                '元に戻す',
+                '실행 취소',
+                'geri al',
+                'отменить',
+                'ongedaan',
+                'annulla',
+                'cofnij',
+                'скасувати',
+                'anulare',
+                'visszavon',
+                'zpět',
+                'ångra',
+                'angre',
+                'kumoa',
+                'αναίρεση',
+                'בטל',
+                'отмени',
+                'späť',
+                'desfer',
+                'poništi',
+                'تراجع',
+                'لغو',
+                'पूर्ववत',
+                'পূর্বাবস্থায়',
+                'واپس',
+                'batalkan',
+                'เลิกทำ',
+                'hoàn tác',
+                'i-undo',
+            ];
+            const THANKS_WAIT_MS = 1200;
+            const waitForThanksOrGone = () => new Promise(resolve => {
+                if (!document.contains(cardRow)) return resolve('gone');
+                const hasUndo = (root) => {
+                    const btns = root.querySelectorAll('button[role="button"]');
+                    if (!btns.length) return false;
+                    return [...btns].some(b => {
+                        const t = b.innerText.trim().toLowerCase();
+                        return UNDO_KEYWORDS.some(kw => t.includes(kw.toLowerCase()));
+                    });
+                };
+                if (hasUndo(cardRow)) return resolve('thanks');
+                const obs = new MutationObserver(() => {
+                    if (!document.contains(cardRow)) { clearTimeout(t); obs.disconnect(); resolve('gone'); return; }
+                    if (hasUndo(cardRow))             { clearTimeout(t); obs.disconnect(); resolve('thanks'); }
+                });
+                obs.observe(cardRow, { childList: true, subtree: true });
+                const t = setTimeout(() => { obs.disconnect(); resolve('timeout'); }, THANKS_WAIT_MS);
+            });
+
             if (SETTINGS.niAction !== 'off') {
                 try {
-                    const keywords = SETTINGS.niAction === 'irrelevant' ? NI_IRRELEVANT_KEYWORDS : NI_FEWER_KEYWORDS;
-                    const toastBtn = await waitForNIToast(keywords, 1000);
-                    toastBtn.click();
+                    if (SETTINGS.niAction === 'pick') {
+                        const [pickedAction] = await Promise.all([
+                            showNIPickerMenu(btnRect),
+                            waitForNIToast([...NI_FEWER_KEYWORDS, ...NI_IRRELEVANT_KEYWORDS], PICKER_TIMEOUT_MS),
+                        ]);
+                        if (pickedAction) {
+                            const pickedKeywords = pickedAction === 'irrelevant'
+                                ? NI_IRRELEVANT_KEYWORDS
+                                : NI_FEWER_KEYWORDS;
+                            const pickedBtn = await waitForNIToast(pickedKeywords, 2000);
+                            await waitForClickable(pickedBtn);
+                            callFiberOnClick(pickedBtn);
+                        }
+                    } else {
+                        const keywords = SETTINGS.niAction === 'irrelevant' ? NI_IRRELEVANT_KEYWORDS : NI_FEWER_KEYWORDS;
+                        const toastBtn = await waitForNIToast(keywords, NI_TOAST_TIMEOUT_MS);
+                        await waitForClickable(toastBtn);
+                        callFiberOnClick(toastBtn);
+                    }
+                    const outcome = await waitForThanksOrGone();
+                    if (outcome !== 'timeout') return;
+                    setTimeout(() => cardRow.remove(), 400);
+                    return;
                 } catch {
                     
                 }
@@ -877,7 +1222,6 @@ const handleBtnClick = async (e, dropdownSelector) => {
 const handleProfileMuteClick = async () => {
     const userActions = document.querySelector('[role="main"] [data-testid="userActions"]');
     if (!userActions) return;
-    document.body.setAttribute('data-pop-open', 'true');
 
     const path = userActions.querySelector(PROFILE_MORE_PATH);
     if (!path) return;
@@ -902,7 +1246,12 @@ const handleProfileMuteClick = async () => {
         });
         didUnmute = !!unmuteItem;
         const target = unmuteItem ?? muteItem;
-        if (target) target.click();
+        if (target) {
+            target.click();
+        } else {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            return;
+        }
     } catch {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         return;
@@ -911,18 +1260,11 @@ const handleProfileMuteClick = async () => {
     await sleep(50);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
+    setMuteBtn(profileMuteBtn, !didUnmute);
     if (profileMuteBtn) {
-        if (didUnmute) {
-            profileMuteBtn.innerHTML = SVG_MUTE;
-            profileMuteBtn.classList.remove('mtga-active');
-            profileMuteBtn.setAttribute('title', 'Mute User');
-            profileMuteBtn.setAttribute('aria-label', 'Mute User');
-        } else {
-            profileMuteBtn.innerHTML = SVG_MUTED;
-            profileMuteBtn.classList.add('mtga-active');
-            profileMuteBtn.setAttribute('title', 'Unmute User');
-            profileMuteBtn.setAttribute('aria-label', 'Unmute User');
-        }
+        const label = didUnmute ? 'Mute User' : 'Unmute User';
+        profileMuteBtn.setAttribute('title', label);
+        profileMuteBtn.setAttribute('aria-label', label);
     }
 };
 
@@ -932,12 +1274,6 @@ const buildSettingsPanel = () => {
     gear.setAttribute('aria-label', 'Settings');
     gear.setAttribute('title', 'Settings');
     gear.innerHTML = SVG_GEAR;
-    if (!SETTINGS.niActionSeen) {
-        gear.classList.add('mtga-has-notice');
-        const noticeDot = document.createElement('span');
-        noticeDot.className = 'mtga-notice-dot';
-        gear.appendChild(noticeDot);
-    }
     document.body.appendChild(gear);
 
     const panel = document.createElement('div');
@@ -953,6 +1289,9 @@ const buildSettingsPanel = () => {
             <button class="mtga-theme-toggle" aria-label="Toggle theme" title="Toggle theme">
                 ${SETTINGS.panelTheme === 'dark' ? SVG_SUN : SVG_MOON}
             </button>
+            <button class="mtga-panel-close" aria-label="Close settings" title="Close settings">
+                ${SVG_CLOSE}
+            </button>
         </div>
         <p class="mtga-panel-subtitle">Choose which buttons appear on each tweet.</p>
         <hr class="mtga-divider">
@@ -965,27 +1304,19 @@ const buildSettingsPanel = () => {
         <div class="mtga-toggle-row" style="align-items:flex-start; flex-direction:column; gap:6px;">
             <div class="mtga-toggle-label">${SVG_AUTO_NI}<span>Auto-confirm</span></div>
             <div class="mtga-toggle-desc">Click an extra option from the thank-you toast automatically.</div>
-            <div class="mtga-radio-group" style="width:100%; margin:2px 0 0 0;">
-                <button class="mtga-radio-btn ${SETTINGS.niAction === 'off'        ? 'mtga-radio-active' : ''}" data-ni-action="off">Off</button>
-                <button class="mtga-radio-btn ${SETTINGS.niAction === 'fewer'      ? 'mtga-radio-active' : ''}" data-ni-action="fewer">Reduce posts</button>
-                <button class="mtga-radio-btn ${SETTINGS.niAction === 'irrelevant' ? 'mtga-radio-active' : ''}" data-ni-action="irrelevant">Not relevant${SETTINGS.niActionSeen ? '' : ' <span class="mtga-new-tag">NEW</span>'}</button>
+            <div class="mtga-radio-group" style="width:100%; margin:2px 0 0 0; flex-wrap:wrap;">
+                <button class="mtga-radio-btn ${SETTINGS.niAction === 'off'         ? 'mtga-radio-active' : ''}" data-ni-action="off">Off</button>
+                <button class="mtga-radio-btn ${SETTINGS.niAction === 'fewer'       ? 'mtga-radio-active' : ''}" data-ni-action="fewer">Reduce posts</button>
+                <button class="mtga-radio-btn ${SETTINGS.niAction === 'irrelevant'  ? 'mtga-radio-active' : ''}" data-ni-action="irrelevant">Not relevant</button>
             </div>
-            <div class="mtga-ni-hint ${SETTINGS.niAction === 'irrelevant' ? 'mtga-ni-hint-visible' : ''}">
-                ⚠️ First click after page load: tap 👎🏻, then tap <strong>Undo</strong> once — auto-confirm activates from the second click onward.
-            </div>
-            <div class="mtga-ni-detail ${SETTINGS.niAction === 'irrelevant' && !SETTINGS.niDetailDismissed ? 'mtga-ni-detail-open' : ''}">
-                <div class="mtga-ni-detail-header">
-                    <span>⚠️ Experimental Feature</span>
-                    <button class="mtga-ni-detail-close" aria-label="Close">${SVG_CLOSE}</button>
+            <button class="mtga-legacy-toggle ${SETTINGS.niAction === 'pick' ? 'open' : ''}" id="mtga-legacy-toggle" aria-expanded="${SETTINGS.niAction === 'pick' ? 'true' : 'false'}" aria-controls="mtga-legacy-section">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                ⟡ Elegant Menu Mode ⟡
+            </button>
+            <div class="mtga-legacy-section ${SETTINGS.niAction === 'pick' ? 'open' : ''}" id="mtga-legacy-section" style="width:100%;">
+                <div class="mtga-radio-group" style="width:100%; flex-wrap:wrap;">
+                    <button class="mtga-radio-btn mtga-legacy ${SETTINGS.niAction === 'pick' ? 'mtga-radio-active' : ''}" data-ni-action="pick" style="flex:1;">Interactive Mode ✦</button>
                 </div>
-                <p>Reports posts as <strong>"not interested"</strong> based on topic type, rather than reducing posts from that user.</p>
-                <p><strong>Known limitation</strong> — on every fresh page load, the first 👎 tap requires one extra step:</p>
-                <ol>
-                    <li>Tap 👎 on any post.</li>
-                    <li>Tap <strong>Undo</strong> in the thank-you toast.</li>
-                    <li>Tap 👎 again — auto-confirm now works normally.</li>
-                </ol>
-                <br><button class="mtga-ni-detail-copy" aria-label="Copy this message">${SVG_COPY} Copy text</button>
             </div>
         </div>
         <hr class="mtga-divider">
@@ -998,7 +1329,6 @@ const buildSettingsPanel = () => {
     `;
     document.body.appendChild(panel);
 
-    // Toggle switches
     panel.querySelectorAll('.mtga-switch input').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             SETTINGS[checkbox.dataset.key] = checkbox.checked;
@@ -1007,64 +1337,23 @@ const buildSettingsPanel = () => {
         });
     });
 
-    // NI action radio (Off / Reduce posts / Not relevant) — mutual exclusive
     panel.querySelectorAll('[data-ni-action]').forEach(btn => {
         btn.addEventListener('click', () => {
             SETTINGS.niAction = btn.dataset.niAction;
-            // Clicking "Not relevant" dismisses its new-feature notice (NEW tag + gear dot),
-            // regardless of which option was previously active — first click always clears it.
-            if (btn.dataset.niAction === 'irrelevant' && !SETTINGS.niActionSeen) {
-                SETTINGS.niActionSeen = true;
-                panel.querySelector('.mtga-new-tag')?.remove();
-                gear.classList.remove('mtga-has-notice');
-                gear.querySelector('.mtga-notice-dot')?.remove();
-            }
             saveSettings();
             panel.querySelectorAll('[data-ni-action]').forEach(b => b.classList.remove('mtga-radio-active'));
             btn.classList.add('mtga-radio-active');
-            // Show first-click warning only when "Not relevant" is selected
-            const hint = panel.querySelector('.mtga-ni-hint');
-            if (hint) hint.classList.toggle('mtga-ni-hint-visible', SETTINGS.niAction === 'irrelevant');
-            // Show inline detail view when "Not relevant" is selected — but respect a prior
-            // dismissal: once the user has closed this explanation via ×, re-selecting
-            // "Not relevant" should not force it back open.
-            const detail = panel.querySelector('.mtga-ni-detail');
-            if (detail) detail.classList.toggle('mtga-ni-detail-open', SETTINGS.niAction === 'irrelevant' && !SETTINGS.niDetailDismissed);
         });
     });
 
-    // ── NI detail view (inline inside panel) ──────────────────────────────────
-    const NI_DETAIL_TEXT =
-        '⚠️ Experimental Feature — Not Relevant\n\n' +
-        'This feature reports posts as "not interested" based on topic type.\n\n' +
-        'Known limitation: on every fresh page load, the first 👎 tap requires one extra step:\n' +
-        '  1. Tap 👎 on a post.\n' +
-        '  2. Tap "Undo" in the thank-you toast.\n' +
-        '  3. Tap 👎 again — auto-confirm will now work normally.\n\n' +
-        'From the second tap onward, auto-confirm activates without any extra step.';
-
-    const niDetail = panel.querySelector('.mtga-ni-detail');
-
-    // Close button inside detail view — dismissal is independent of niAction; closing this
-    // explanation does not change the user's Not-relevant feature setting, only whether the
-    // detail auto-expands again on a future panel open.
-    niDetail.querySelector('.mtga-ni-detail-close').addEventListener('click', () => {
-        niDetail.classList.remove('mtga-ni-detail-open');
-        SETTINGS.niDetailDismissed = true;
-        saveSettings();
+    const legacyToggle  = panel.querySelector('#mtga-legacy-toggle');
+    const legacySection = panel.querySelector('#mtga-legacy-section');
+    legacyToggle.addEventListener('click', () => {
+        const isOpen = legacySection.classList.toggle('open');
+        legacyToggle.classList.toggle('open', isOpen);
+        legacyToggle.setAttribute('aria-expanded', String(isOpen));
     });
 
-    // Copy button inside detail view
-    niDetail.querySelector('.mtga-ni-detail-copy').addEventListener('click', function () {
-        navigator.clipboard?.writeText(NI_DETAIL_TEXT).then(() => {
-            const orig = this.innerHTML;
-            this.innerHTML = `${SVG_COPY} Copied!`;
-            this.classList.add('mtga-copied');
-            setTimeout(() => { this.innerHTML = orig; this.classList.remove('mtga-copied'); }, 1800);
-        }).catch(() => {});
-    });
-
-    // Position radio
     panel.querySelectorAll('.mtga-radio-btn[data-pos]').forEach(btn => {
         btn.addEventListener('click', () => {
             SETTINGS.buttonPosition = btn.dataset.pos;
@@ -1075,14 +1364,16 @@ const buildSettingsPanel = () => {
         });
     });
 
-    // Theme toggle (top-right circle button)
     panel.querySelector('.mtga-theme-toggle').addEventListener('click', () => {
         const next = SETTINGS.panelTheme === 'dark' ? 'light' : 'dark';
         SETTINGS.panelTheme = next;
         saveSettings();
         panel.setAttribute('data-mtga-theme', next);
-        // Swap icon: show sun when dark (clicking will go light), show moon when light
         panel.querySelector('.mtga-theme-toggle').innerHTML = next === 'dark' ? SVG_SUN : SVG_MOON;
+    });
+
+    panel.querySelector('.mtga-panel-close').addEventListener('click', () => {
+        panel.classList.remove('mtga-panel-open');
     });
 
     gear.addEventListener('click', () => panel.classList.toggle('mtga-panel-open'));
@@ -1090,13 +1381,17 @@ const buildSettingsPanel = () => {
     document.addEventListener('click', (e) => {
         if (panel.classList.contains('mtga-panel-open')
             && !panel.contains(e.target)
-            && e.target !== gear) {
+            && !gear.contains(e.target)) {
             panel.classList.remove('mtga-panel-open');
         }
     });
 };
 
 const makeToggleRow = (key, svgIcon, label, desc) => {
+    if (!Object.prototype.hasOwnProperty.call(SETTINGS_DEFAULTS, key)) {
+        console.warn('[MTGA] makeToggleRow: rejected unknown key', key);
+        return '';
+    }
     const checked = SETTINGS[key] ? 'checked' : '';
     return `
         <div class="mtga-toggle-row">
@@ -1116,11 +1411,11 @@ const setTabStatusToBody = () => {
     const tabs = document.querySelectorAll('[role="tablist"] [role="tab"]');
     if (!document.body || tabs.length === 0) return;
     if (document.querySelectorAll('[role="tablist"] [role="tab"][data-index]').length === 0) {
-        Array.from(tabs).forEach((el, idx) => el.closest('div').setAttribute('data-index', idx + 1));
+        Array.from(tabs).forEach((el, idx) => el.parentElement?.setAttribute('data-index', idx + 1));
     }
     const selected = document.querySelector('[role="tablist"] [role="tab"][aria-selected="true"]');
     if (selected) {
-        const parent = selected.closest('div');
+        const parent = selected.parentElement;
         if (parent) {
             const newIndex = parent.getAttribute('data-index');
             const prevIndex = document.body.getAttribute('data-make-twitter-great-again');
@@ -1152,16 +1447,8 @@ const observeTweets = () => {
             throttleTimer = null;
             setTabStatusToBody();
             isProfile();
-            if (!document.querySelector('[role="menu"]')) {
-                document.body.removeAttribute('data-pop-open');
-            }
         }, 300);
     });
-    setInterval(() => {
-        if (!document.querySelector('[role="menu"]')) {
-            document.body.removeAttribute('data-pop-open');
-        }
-    }, 1000);
     observer.observe(document.body, { childList: true, subtree: true });
     return observer;
 };
