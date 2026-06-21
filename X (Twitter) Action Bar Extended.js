@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.3.0.0
+// @version      1.3.0.3
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -492,7 +492,7 @@ const SVG_COPY    = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H
 
 const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
     ? GM_info.script.version
-    : '1.3.0.9';
+    : '1.3.0.3';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -644,9 +644,118 @@ const waitForNewDropdown = (selector, timeout = 3000) => {
     });
 };
 
-const UNMUTE_KEYWORDS = ['unmute', '取消靜音', 'rétablir le son', 'ton açma', 'звук'];
-const MUTE_KEYWORDS         = ['mute', '靜音', 'silencier', 'sessize al', 'игнорировать'];
-const MUTE_EXCLUDE_KEYWORDS = ['unmute', '取消', 'conversation', '對話', 'rétablir', 'ton açma', 'звук'];
+const UNMUTE_KEYWORDS = [
+    'unmute',
+    '取消靜音',
+    'rétablir le son',
+    'ton açma',
+    'звук',
+    '取消静音',
+    'stummschaltung aufheben',
+    'dejar de silenciar',
+    'dessilenciar',
+    'ミュート解除',
+    '음소거 해제',
+    'dempen opheffen',
+    'riattiva audio',
+    'cofnij wyciszenie',
+    'увімкнути звук',
+    'activează sunetul',
+    'némítás feloldása',
+    'zrušit ztlumení',
+    'sluta tysta',
+    'opphev demping',
+    'poista mykistys',
+    'αναίρεση σίγασης',
+    'בטל השתקה',
+    'премахни заглушаването',
+    'zrušiť stlmenie',
+    'deixar de silenciar',
+    'ukini utišavanje',
+    'إلغاء كتم',
+    'لغو بی‌صدا',
+    'अनम्यूट',
+    'নিঃশব্দ বাতিল',
+    'خاموشی ختم',
+    'batalkan bisukan',
+    'nyahsenyap',
+    'เปิดเสียง',
+    'bật tiếng',
+    'i-unmute',
+];
+const MUTE_KEYWORDS = [
+    'mute',
+    '靜音',
+    'silencier',
+    'sessize al',
+    'игнорировать',
+    '静音',
+    'stummschalten',
+    'silenciar',
+    'ミュート',
+    '음소거',
+    'dempen',
+    'silenzia',
+    'wycisz',
+    'вимкнути звук',
+    'dezactivează sunetul',
+    'némítás',
+    'ztlumit',
+    'tysta',
+    'demp',
+    'mykistä',
+    'σίγαση',
+    'השתק',
+    'заглуш',
+    'stlmiť',
+    'utišaj',
+    'كتم',
+    'بی‌صدا',
+    'म्यूट',
+    'নিঃশব্দ',
+    'خاموش',
+    'bisukan',
+    'senyapkan',
+    'ปิดเสียง',
+    'tắt tiếng',
+    'i-mute',
+];
+const CONVERSATION_KEYWORDS = [
+    'conversation',
+    '對話',
+    '对话',
+    'unterhaltung',
+    'conversación',
+    'conversa',
+    '会話',
+    '대화',
+    'konuşma',
+    'разговор',
+    'gesprek',
+    'conversazione',
+    'konwersacja',
+    'розмова',
+    'conversație',
+    'beszélgetés',
+    'konverzace',
+    'konversation',
+    'samtale',
+    'keskustelu',
+    'συνομιλία',
+    'שיחה',
+    'konverzácia',
+    'razgovor',
+    'محادثة',
+    'گفتگو',
+    'बातचीत',
+    'কথোপকথন',
+    'percakapan',
+    'perbualan',
+    'การสนทนา',
+    'cuộc trò chuyện',
+    'usapan',
+];
+const MUTE_EXCLUDE_KEYWORDS = [...UNMUTE_KEYWORDS, ...CONVERSATION_KEYWORDS];
 const stripQuotes = str => str.replace(/[\u0022\u0027\u2018\u2019\u201c\u201d\u300c\u300d\uff02]/g, '');
 const NI_KEYWORDS = [
     'not interested',
@@ -890,14 +999,17 @@ const getCardRow = (tweet) => {
     return tweet.closest('div[data-testid]') ?? tweet.parentElement?.parentElement ?? tweet;
 };
 
-const THIRD_PARTY_SELECTORS = [
+const OWN_UI_SELECTORS = [
     'div[role="group"][id*="id__"]',
     '.mtga-header-group',
+];
+const THIRD_PARTY_SELECTORS_RAW = [
     '.my-grok-robot-btn',
     '.my-commander-btn',
     '.custom-copy-icon',
     '.force-media-copy-btn',
 ];
+const THIRD_PARTY_SELECTORS = [...OWN_UI_SELECTORS, ...THIRD_PARTY_SELECTORS_RAW];
 
 const PICKER_TIMEOUT_MS   = 8000;
 const NI_TOAST_TIMEOUT_MS = 3000;
@@ -1004,19 +1116,21 @@ const handleBtnClick = async (e, dropdownSelector) => {
             const item = await waitForMenuItem('[data-testid="block"],[data-testid="unblock"]', 3000);
             wasBlocked = item.dataset.testid === 'unblock';
             item.click();
-            const confirmDialog = await waitForConfirmDialog();
-            if (confirmDialog) {
-                const confirmBtn = confirmDialog.querySelector(BLOCK_CONFIRM_SEL);
-                if (confirmBtn) {
-                    confirmBtn.click();
+            if (!wasBlocked) {
+                const confirmDialog = await waitForConfirmDialog();
+                if (confirmDialog) {
+                    const confirmBtn = confirmDialog.querySelector(BLOCK_CONFIRM_SEL);
+                    if (confirmBtn) {
+                        confirmBtn.click();
+                    } else {
+                        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                        console.warn('[MTGA] Block: confirmationSheetConfirm not found — action aborted');
+                        return;
+                    }
                 } else {
-                    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-                    console.warn('[MTGA] Block: confirmationSheetConfirm not found — action aborted');
+                    console.warn('[MTGA] Block: confirm dialog timed out — UI state not updated');
                     return;
                 }
-            } else {
-                console.warn('[MTGA] Block: confirm dialog timed out — UI state not updated');
-                return;
             }
         } catch {
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
