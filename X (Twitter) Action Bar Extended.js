@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.3.0.3
+// @version      1.3.0.10
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -40,6 +40,7 @@ const SETTINGS_DEFAULTS = {
     niAction:          'off',
     buttonPosition:    'header',
     panelTheme:        'dark',
+    panelPinned:       false,
 };
 
 let SETTINGS = { ...SETTINGS_DEFAULTS };
@@ -57,6 +58,7 @@ const sanitizeSettings = (raw) => {
         showNotInterested: !!merged.showNotInterested,
         showMute:          !!merged.showMute,
         showBlock:         !!merged.showBlock,
+        panelPinned:       !!merged.panelPinned,
     };
 };
 
@@ -94,8 +96,13 @@ const saveSettings = () => {
             cursor: pointer;
             color: rgb(113, 118, 123);
             flex-shrink: 0;
-            transition: color 0.15s ease, background-color 0.15s ease;
+            transition: color 0.15s ease, background-color 0.15s ease, transform 0.08s ease;
+            animation: mtga-btn-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
             vertical-align: middle;
+        }
+        
+        .mtga-btn:active {
+            transform: scale(0.84);
         }
         .mtga-btn.mtga-not-interested:hover {
             color: rgb(255, 160, 0);
@@ -156,6 +163,20 @@ const saveSettings = () => {
             flex-direction: row;
         }
 
+        @keyframes mtga-btn-in {
+            from { opacity: 0; transform: scale(0.72); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        
+        .mtga-btn.mtga-btn-pop {
+            animation: mtga-btn-pop 0.24s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+        }
+        @keyframes mtga-btn-pop {
+            0%   { transform: scale(1); }
+            45%  { transform: scale(1.28); }
+            100% { transform: scale(1); }
+        }
+
         #mtga-settings-gear {
             position: fixed;
             bottom: 24px;
@@ -211,6 +232,10 @@ const saveSettings = () => {
             pointer-events: auto;
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0s,
                         background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+        
+        #mtga-panel.mtga-panel-open :is(button, a, [role="button"], input, select, label) {
+            pointer-events: auto !important;
         }
 
         #mtga-panel[data-mtga-theme="dark"] {
@@ -285,6 +310,95 @@ const saveSettings = () => {
             padding: 0;
         }
         .mtga-theme-toggle svg { width: 15px; height: 15px; fill: currentColor; pointer-events: none; }
+
+        .mtga-pin-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 0;
+            position: relative;
+            top: 0;
+            left: 0;
+            font-size: 14px;
+            line-height: 1;
+            transform: scale(1);
+            transform-origin: top left;
+            transition: background-color 0.15s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-pin-btn { background: rgba(255,255,255,0.10); color: rgb(113,118,123); }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-pin-btn:hover { background: rgba(255,255,255,0.18); color: #e7e9ea; }
+        #mtga-panel[data-mtga-theme="light"] .mtga-pin-btn { background: rgba(0,0,0,0.06); color: rgb(83,100,113); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-pin-btn:hover { background: rgba(0,0,0,0.12); color: #0f1419; }
+
+        .mtga-pin-btn.mtga-pin-active {
+            transform: translate(-20px, -20px) scale(2);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+            z-index: 1;
+        }
+
+        @keyframes mtga-pin-bounce-in {
+            0%   { transform: translate(-20px, -20px) scale(1); }
+            35%  { transform: translate(-20px, -20px) scale(2.45); }
+            55%  { transform: translate(-20px, -20px) scale(1.65); }
+            75%  { transform: translate(-20px, -20px) scale(2.2); }
+            100% { transform: translate(-20px, -20px) scale(2); }
+        }
+        .mtga-pin-btn.mtga-pin-bounce { animation: mtga-pin-bounce-in 0.55s cubic-bezier(.34,1.56,.64,1) both; }
+
+        @keyframes mtga-pin-flash {
+            0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
+            50%      { box-shadow: 0 4px 14px rgba(0,0,0,0.45), 0 0 0 8px rgba(255,80,80,0.55); }
+        }
+        .mtga-pin-btn.mtga-pin-flash { animation: mtga-pin-flash 0.4s ease-in-out 2; }
+
+        .mtga-unpin-confirm {
+            position: absolute;
+            top: 44px;
+            right: 14px;
+            z-index: 2;
+            width: 200px;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 12.5px;
+            line-height: 1.4;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.9) translateY(-4px);
+            transform-origin: top right;
+            transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16,1,0.3,1), visibility 0s linear 0.18s;
+        }
+        .mtga-unpin-confirm.mtga-unpin-confirm-open {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1) translateY(0);
+            transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16,1,0.3,1), visibility 0s linear 0s;
+        }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-unpin-confirm { background: #253341; color: #e7e9ea; border: 1px solid rgba(255,255,255,0.12); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-unpin-confirm { background: #ffffff; color: #0f1419; border: 1px solid rgba(0,0,0,0.12); }
+        .mtga-unpin-confirm p { margin: 0 0 10px 0; }
+        .mtga-unpin-confirm-actions { display: flex; gap: 8px; }
+        .mtga-unpin-confirm-btn {
+            flex: 1;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 0;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;          
+            cursor: pointer;
+            transition: filter 0.15s ease;
+        }
+        .mtga-unpin-confirm-btn:hover { filter: brightness(1.1); }
+        .mtga-unpin-confirm-btn.mtga-unpin-yes { background: rgb(29,155,240); color: #fff; }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-unpin-confirm-btn.mtga-unpin-no { background: rgba(255,255,255,0.12); color: #e7e9ea; }
+        #mtga-panel[data-mtga-theme="light"] .mtga-unpin-confirm-btn.mtga-unpin-no { background: rgba(0,0,0,0.08); color: #0f1419; }
 
         #mtga-panel .mtga-panel-subtitle { margin: 0 0 14px 0; font-size: 12px; }
         #mtga-panel .mtga-divider        { border: none; border-top: 1px solid; margin: 12px 0; }
@@ -474,6 +588,22 @@ const saveSettings = () => {
             to   { transform: scaleX(0); }
         }
 
+        .mtga-picker.mtga-picker-out {
+            pointer-events: none;
+            animation: mtga-picker-out 0.14s ease forwards;
+        }
+        .mtga-picker[data-side="right"].mtga-picker-out {
+            animation-name: mtga-picker-out-left;
+        }
+        @keyframes mtga-picker-out {
+            from { opacity: 1; transform: translateX(0)    scale(1);    }
+            to   { opacity: 0; transform: translateX(8px)  scale(0.93); }
+        }
+        @keyframes mtga-picker-out-left {
+            from { opacity: 1; transform: translateX(0)    scale(1);    }
+            to   { opacity: 0; transform: translateX(-8px) scale(0.93); }
+        }
+
     `;
     document.head.appendChild(style);
 })();
@@ -492,9 +622,17 @@ const SVG_COPY    = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H
 
 const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
     ? GM_info.script.version
-    : '1.3.0.3';
+    : '1.3.0.10';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const scheduleIdle = (callback, timeoutMs = 200) => {
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(callback, { timeout: timeoutMs });
+    } else {
+        setTimeout(callback, 0);
+    }
+};
 
 const waitForElm = (selector) => new Promise((resolve, reject) => {
     const existing = document.querySelector(selector);
@@ -973,6 +1111,10 @@ const setMuteBtn = (muteBtn, isMuted) => {
         muteBtn.setAttribute('title', 'Mute');
         muteBtn.setAttribute('aria-label', 'Mute');
     }
+    muteBtn.classList.remove('mtga-btn-pop');
+    void muteBtn.offsetWidth;
+    muteBtn.classList.add('mtga-btn-pop');
+    muteBtn.addEventListener('animationend', () => muteBtn.classList.remove('mtga-btn-pop'), { once: true });
 };
 
 const setBlockBtn = (blockBtn, isBlocked) => {
@@ -988,6 +1130,10 @@ const setBlockBtn = (blockBtn, isBlocked) => {
         blockBtn.setAttribute('title', 'Block');
         blockBtn.setAttribute('aria-label', 'Block');
     }
+    blockBtn.classList.remove('mtga-btn-pop');
+    void blockBtn.offsetWidth;
+    blockBtn.classList.add('mtga-btn-pop');
+    blockBtn.addEventListener('animationend', () => blockBtn.classList.remove('mtga-btn-pop'), { once: true });
 };
 
 const getCardRow = (tweet) => {
@@ -1072,8 +1218,9 @@ const showNIPickerMenu = (anchorRect) => new Promise(resolve => {
         clearTimeout(timer);
         document.removeEventListener('keydown', onKey, true);
         document.removeEventListener('click',   onOutside, true);
-        picker.remove();
         resolve(choice);
+        picker.classList.add('mtga-picker-out');
+        setTimeout(() => picker.remove(), 150);
     };
 
     picker.querySelectorAll('.mtga-picker-btn').forEach(btn => {
@@ -1311,15 +1458,12 @@ const handleBtnClick = async (e, dropdownSelector) => {
                         await waitForClickable(toastBtn);
                         callFiberOnClick(toastBtn);
                     }
-                    const outcome = await waitForThanksOrGone();
-                    if (outcome !== 'timeout') return;
-                    setTimeout(() => cardRow.remove(), 400);
-                    return;
                 } catch {
-                    
                 }
             }
 
+            const outcome = await waitForThanksOrGone();
+            if (outcome !== 'timeout') return;
             setTimeout(() => cardRow.remove(), 400);
         }
         return;
@@ -1399,6 +1543,11 @@ const buildSettingsPanel = () => {
 
     panel.innerHTML = `
         <div class="mtga-panel-header">
+            <button class="mtga-pin-btn ${SETTINGS.panelPinned ? 'mtga-pin-active' : ''}"
+                    aria-label="${SETTINGS.panelPinned ? 'Unpin panel' : 'Pin panel'}"
+                    title="${SETTINGS.panelPinned ? 'Unpin panel' : 'Pin panel — keep it open while browsing'}">
+                📌
+            </button>
             <h3>Settings</h3>
             <button class="mtga-theme-toggle" aria-label="Toggle theme" title="Toggle theme">
                 ${SETTINGS.panelTheme === 'dark' ? SVG_SUN : SVG_MOON}
@@ -1406,6 +1555,13 @@ const buildSettingsPanel = () => {
             <button class="mtga-panel-close" aria-label="Close settings" title="Close settings">
                 ${SVG_CLOSE}
             </button>
+            <div class="mtga-unpin-confirm" id="mtga-unpin-confirm">
+                <p>Unpin and close the settings panel?</p>
+                <div class="mtga-unpin-confirm-actions">
+                    <button class="mtga-unpin-confirm-btn mtga-unpin-no" data-unpin-choice="no">No</button>
+                    <button class="mtga-unpin-confirm-btn mtga-unpin-yes" data-unpin-choice="yes">Yes</button>
+                </div>
+            </div>
         </div>
         <p class="mtga-panel-subtitle">Choose which buttons appear on each tweet.</p>
         <hr class="mtga-divider">
@@ -1442,6 +1598,10 @@ const buildSettingsPanel = () => {
         <p class="mtga-panel-footer">Twitter Action Bar Extended · v${SCRIPT_VERSION}</p>
     `;
     document.body.appendChild(panel);
+
+    if (SETTINGS.panelPinned) {
+        panel.classList.add('mtga-panel-open');
+    }
 
     panel.querySelectorAll('.mtga-switch input').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
@@ -1486,14 +1646,67 @@ const buildSettingsPanel = () => {
         panel.querySelector('.mtga-theme-toggle').innerHTML = next === 'dark' ? SVG_SUN : SVG_MOON;
     });
 
+    let unpinCloseAttempts = 0;
+    const pinBtn        = panel.querySelector('.mtga-pin-btn');
+    const unpinConfirm   = panel.querySelector('#mtga-unpin-confirm');
+
+    const applyPinVisualState = (pinned, animate) => {
+        pinBtn.classList.toggle('mtga-pin-active', pinned);
+        pinBtn.setAttribute('aria-label', pinned ? 'Unpin panel' : 'Pin panel');
+        pinBtn.setAttribute('title', pinned ? 'Unpin panel' : 'Pin panel — keep it open while browsing');
+        if (pinned && animate) {
+            pinBtn.classList.remove('mtga-pin-bounce');
+            void pinBtn.offsetWidth;
+            pinBtn.classList.add('mtga-pin-bounce');
+            pinBtn.addEventListener('animationend', () => pinBtn.classList.remove('mtga-pin-bounce'), { once: true });
+        }
+    };
+
+    const hideUnpinConfirm = () => unpinConfirm.classList.remove('mtga-unpin-confirm-open');
+
+    pinBtn.addEventListener('click', () => {
+        const nowPinned = !SETTINGS.panelPinned;
+        SETTINGS.panelPinned = nowPinned;
+        saveSettings();
+        applyPinVisualState(nowPinned, true);
+        unpinCloseAttempts = 0;
+        if (!nowPinned) hideUnpinConfirm();
+    });
+
     panel.querySelector('.mtga-panel-close').addEventListener('click', () => {
-        panel.classList.remove('mtga-panel-open');
+        if (!SETTINGS.panelPinned) {
+            panel.classList.remove('mtga-panel-open');
+            return;
+        }
+        unpinCloseAttempts++;
+        if (unpinCloseAttempts === 1) {
+            pinBtn.classList.remove('mtga-pin-flash');
+            void pinBtn.offsetWidth;
+            pinBtn.classList.add('mtga-pin-flash');
+            pinBtn.addEventListener('animationend', () => pinBtn.classList.remove('mtga-pin-flash'), { once: true });
+        } else {
+            unpinConfirm.classList.add('mtga-unpin-confirm-open');
+        }
+    });
+
+    unpinConfirm.addEventListener('click', (e) => {
+        const choice = e.target.closest('[data-unpin-choice]')?.dataset.unpinChoice;
+        if (!choice) return;
+        hideUnpinConfirm();
+        unpinCloseAttempts = 0;
+        if (choice === 'yes') {
+            SETTINGS.panelPinned = false;
+            saveSettings();
+            applyPinVisualState(false, false);
+            panel.classList.remove('mtga-panel-open');
+        }
     });
 
     gear.addEventListener('click', () => panel.classList.toggle('mtga-panel-open'));
 
     document.addEventListener('click', (e) => {
         if (panel.classList.contains('mtga-panel-open')
+            && !SETTINGS.panelPinned
             && !panel.contains(e.target)
             && !gear.contains(e.target)) {
             panel.classList.remove('mtga-panel-open');
@@ -1550,11 +1763,22 @@ const isProfile = () => {
 
 const observeTweets = () => {
     let throttleTimer = null;
-    let rafPending = false;
-    const observer = new MutationObserver(() => {
-        if (!rafPending) {
-            rafPending = true;
-            requestAnimationFrame(() => { rafPending = false; addBtnToTweets(); });
+    let idleScheduled = false;
+    const hasArticleNode = (nodes) => {
+        for (const node of nodes) {
+            if (node.nodeType !== 1) continue;
+            if (node.matches?.('article') || node.querySelector?.('article')) return true;
+        }
+        return false;
+    };
+    const observer = new MutationObserver((mutationsList) => {
+        let relevant = false;
+        for (const m of mutationsList) {
+            if (hasArticleNode(m.addedNodes)) { relevant = true; break; }
+        }
+        if (relevant && !idleScheduled) {
+            idleScheduled = true;
+            scheduleIdle(() => { idleScheduled = false; addBtnToTweets(); });
         }
         if (throttleTimer) return;
         throttleTimer = setTimeout(() => {
