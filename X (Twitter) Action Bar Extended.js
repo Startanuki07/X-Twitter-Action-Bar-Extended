@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.3.0.10
+// @version      1.3.0.12
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -161,6 +161,7 @@ const saveSettings = () => {
             display: flex;
             align-items: center;
             flex-direction: row;
+            gap: 8px;
         }
 
         @keyframes mtga-btn-in {
@@ -622,7 +623,7 @@ const SVG_COPY    = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H
 
 const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
     ? GM_info.script.version
-    : '1.3.0.10';
+    : '1.3.0.12';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -665,6 +666,14 @@ makeTweetBtn._registry = (typeof FinalizationRegistry !== 'undefined')
     ? new FinalizationRegistry(observer => observer.disconnect())
     : null;
 
+let _headerBtnSizeCache = null;
+const _getHeaderBtnSize = (nativeRef) => {
+    if (_headerBtnSizeCache !== null) return _headerBtnSizeCache;
+    const h = nativeRef?.getBoundingClientRect().height;
+    _headerBtnSizeCache = (h && h >= 14) ? h : 34;
+    return _headerBtnSizeCache;
+};
+
 const getHeaderInsertionPoint = (tweet) => {
     const caret = tweet.querySelector('[data-testid="caret"]');
     if (!caret) return null;
@@ -703,15 +712,17 @@ const addBtnToTweet = (tweet) => {
             tweet.removeAttribute('data-mtga-stamped');
             return;
         }
+        const _sz = _getHeaderBtnSize(insertion.before);
         const group = document.createElement('div');
         group.classList.add('mtga-header-group');
         if (SETTINGS.showNotInterested && niState !== 'hidden') {
             const niBtn = makeTweetBtn('mtga-not-interested', 'Not Interested', SVG_NOT_INTERESTED);
+            niBtn.style.width = niBtn.style.height = _sz + 'px';
             if (niState === 'dim') { niBtn.classList.add('mtga-disabled'); niBtn.setAttribute('aria-disabled', 'true'); }
             group.appendChild(niBtn);
         }
-        if (SETTINGS.showMute)  group.appendChild(makeTweetBtn('mtga-mute',  'Mute',  SVG_MUTE));
-        if (SETTINGS.showBlock) group.appendChild(makeTweetBtn('mtga-block', 'Block', SVG_BLOCK));
+        if (SETTINGS.showMute)  { const _b = makeTweetBtn('mtga-mute',  'Mute',  SVG_MUTE);  _b.style.width = _b.style.height = _sz + 'px'; group.appendChild(_b); }
+        if (SETTINGS.showBlock) { const _b = makeTweetBtn('mtga-block', 'Block', SVG_BLOCK); _b.style.width = _b.style.height = _sz + 'px'; group.appendChild(_b); }
         insertion.container.insertBefore(group, insertion.before);
     } else {
         injectToActionBar(tweet, niState);
