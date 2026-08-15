@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.3.0.12
+// @version      1.3.0.14
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -478,6 +478,10 @@ const saveSettings = () => {
         #mtga-panel[data-mtga-theme="dark"]  .mtga-legacy-toggle:hover { color: rgba(255,255,255,0.65); }
         #mtga-panel[data-mtga-theme="light"] .mtga-legacy-toggle { color: rgba(0,0,0,0.38); }
         #mtga-panel[data-mtga-theme="light"] .mtga-legacy-toggle:hover { color: rgba(0,0,0,0.60); }
+        
+        .mtga-legacy-toggle.mtga-legacy-toggle-locked { cursor: not-allowed; opacity: 0.7; }
+        #mtga-panel[data-mtga-theme="dark"]  .mtga-legacy-toggle.mtga-legacy-toggle-locked:hover { color: rgba(255,255,255,0.38); }
+        #mtga-panel[data-mtga-theme="light"] .mtga-legacy-toggle.mtga-legacy-toggle-locked:hover { color: rgba(0,0,0,0.38); }
         .mtga-legacy-section {
             overflow: hidden;
             max-height: 0;
@@ -623,7 +627,7 @@ const SVG_COPY    = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H
 
 const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
     ? GM_info.script.version
-    : '1.3.0.12';
+    : '1.3.0.14';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -673,6 +677,14 @@ const _getHeaderBtnSize = (nativeRef) => {
     _headerBtnSizeCache = (h && h >= 14) ? h : 34;
     return _headerBtnSizeCache;
 };
+let _resizeInvalidateTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(_resizeInvalidateTimer);
+    _resizeInvalidateTimer = setTimeout(() => {
+        _headerBtnSizeCache = null;
+        refreshAllTweets();
+    }, 300);
+});
 
 const getHeaderInsertionPoint = (tweet) => {
     const caret = tweet.querySelector('[data-testid="caret"]');
@@ -687,6 +699,11 @@ const getHeaderInsertionPoint = (tweet) => {
     return { container: flexRow, before: grokWrapper };
 };
 
+const getActionBarInsertionPoint = (tweet) => {
+    const navAction = tweet.querySelector('div[role="group"][id*="id__"]');
+    return navAction ? { container: navAction } : null;
+};
+
 const addBtnToTweet = (tweet) => {
     if (!tweet) return;
 
@@ -698,20 +715,25 @@ const addBtnToTweet = (tweet) => {
     if (tweet.getAttribute('data-mtga-stamped') === stamp) return;
 
     tweet.querySelectorAll('.mtga-btn, .mtga-header-group').forEach(el => el.remove());
-    tweet.setAttribute('data-mtga-stamped', stamp);
 
-    if (pos === 'header') {
-        const insertion = getHeaderInsertionPoint(tweet);
-        if (!insertion) {
-            const retries = parseInt(tweet.getAttribute('data-mtga-caret-retries') ?? '0', 10);
-            if (retries >= CARET_RETRY_LIMIT) {
-                tweet.setAttribute('data-mtga-stamped', 'no-caret');
-                return;
-            }
-            tweet.setAttribute('data-mtga-caret-retries', retries + 1);
-            tweet.removeAttribute('data-mtga-stamped');
+    const insertion = pos === 'header'
+        ? getHeaderInsertionPoint(tweet)
+        : getActionBarInsertionPoint(tweet);
+
+    if (!insertion) {
+        const retries = parseInt(tweet.getAttribute('data-mtga-insert-retries') ?? '0', 10);
+        if (retries >= CARET_RETRY_LIMIT) {
+            tweet.setAttribute('data-mtga-stamped', 'no-caret');
             return;
         }
+        tweet.setAttribute('data-mtga-insert-retries', retries + 1);
+        tweet.removeAttribute('data-mtga-stamped');
+        return;
+    }
+    tweet.setAttribute('data-mtga-stamped', stamp);
+    tweet.removeAttribute('data-mtga-insert-retries');
+
+    if (pos === 'header') {
         const _sz = _getHeaderBtnSize(insertion.before);
         const group = document.createElement('div');
         group.classList.add('mtga-header-group');
@@ -725,13 +747,11 @@ const addBtnToTweet = (tweet) => {
         if (SETTINGS.showBlock) { const _b = makeTweetBtn('mtga-block', 'Block', SVG_BLOCK); _b.style.width = _b.style.height = _sz + 'px'; group.appendChild(_b); }
         insertion.container.insertBefore(group, insertion.before);
     } else {
-        injectToActionBar(tweet, niState);
+        injectToActionBar(insertion.container, niState);
     }
 };
 
-const injectToActionBar = (tweet, niState = 'hidden') => {
-    const navAction = tweet.querySelector('div[role="group"][id*="id__"]');
-    if (!navAction) return;
+const injectToActionBar = (navAction, niState = 'hidden') => {
     if (SETTINGS.showNotInterested && niState !== 'hidden') {
         const niBtn = makeTweetBtn('mtga-not-interested', 'Not Interested', SVG_NOT_INTERESTED);
         if (niState === 'dim') { niBtn.classList.add('mtga-disabled'); niBtn.setAttribute('aria-disabled', 'true'); }
@@ -1069,9 +1089,11 @@ const waitForNIToast = (keywords, timeout = 1500) => new Promise((resolve, rejec
 });
 
 const waitForClickable = (el, timeout = 2000) => new Promise((resolve, reject) => {
+    if (!document.contains(el)) return reject(new Error('waitForClickable: element detached'));
     if (getComputedStyle(el).pointerEvents !== 'none') return resolve(el);
     const start = Date.now();
     const poll = () => {
+        if (!document.contains(el)) return reject(new Error('waitForClickable: element detached'));
         if (getComputedStyle(el).pointerEvents !== 'none') return resolve(el);
         if (Date.now() - start >= timeout) return reject(new Error('waitForClickable: timed out'));
         setTimeout(poll, 30);
@@ -1098,13 +1120,17 @@ const callFiberOnClick = (el, maxDepth = 10) => {
 };
 
 const waitForConfirmDialog = () => new Promise(resolve => {
-    const existing = document.querySelector('[data-testid="confirmationSheetDialog"]');
-    if (existing) return resolve(existing);
+    const SEL = '[data-testid="confirmationSheetDialog"]';
+    const existingNodes = new Set(document.querySelectorAll(SEL));
+    const findNew = () => {
+        const el = document.querySelector(SEL);
+        return (el && !existingNodes.has(el)) ? el : null;
+    };
+    const layers = document.getElementById('layers') || document.body;
     const observer = new MutationObserver(() => {
-        const el = document.querySelector('[data-testid="confirmationSheetDialog"]');
+        const el = findNew();
         if (el) { clearTimeout(timer); observer.disconnect(); resolve(el); }
     });
-    const layers = document.getElementById('layers') || document.body;
     const timer = setTimeout(() => { observer.disconnect(); resolve(null); }, 8000);
     observer.observe(layers, { childList: true, subtree: true });
 });
@@ -1628,12 +1654,25 @@ const buildSettingsPanel = () => {
             saveSettings();
             panel.querySelectorAll('[data-ni-action]').forEach(b => b.classList.remove('mtga-radio-active'));
             btn.classList.add('mtga-radio-active');
+            applyLegacyLockState();
         });
     });
 
     const legacyToggle  = panel.querySelector('#mtga-legacy-toggle');
     const legacySection = panel.querySelector('#mtga-legacy-section');
+    const applyLegacyLockState = () => {
+        const locked = SETTINGS.niAction === 'pick';
+        legacyToggle.classList.toggle('mtga-legacy-toggle-locked', locked);
+        legacyToggle.setAttribute('aria-disabled', String(locked));
+        if (locked) {
+            legacySection.classList.add('open');
+            legacyToggle.classList.add('open');
+            legacyToggle.setAttribute('aria-expanded', 'true');
+        }
+    };
+    applyLegacyLockState();
     legacyToggle.addEventListener('click', () => {
+        if (SETTINGS.niAction === 'pick') return;
         const isOpen = legacySection.classList.toggle('open');
         legacyToggle.classList.toggle('open', isOpen);
         legacyToggle.setAttribute('aria-expanded', String(isOpen));
