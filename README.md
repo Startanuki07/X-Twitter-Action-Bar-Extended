@@ -1,33 +1,28 @@
-# ✨ Manage Your Feed with One-Click Tweet Actions
+# ✨ Not Interested, Mute, and Block Buttons for X (Twitter)
 
-**Adds Not Interested, Mute, and Block buttons directly to each tweet so you can act on your feed in one click.**
+Adds Not Interested, Mute, and Block buttons to each tweet.
 
 <details open>
   <summary><small style="color: #666;">Hide image</small></summary>
   <img src="https://greasyfork.s3.us-east-2.amazonaws.com/hp7z1ipm60k0e8iktpe5q2dmizdm" alt="Image">
 </details>
 
-
 ---
 
 > 💡 **Overview**
-> This script places quick-action buttons alongside the existing controls on every tweet on X (Twitter), removing the need to open dropdown menus to manage your feed. A mute shortcut also appears on user profile pages for fast silencing without leaving the page. A floating settings panel lets you choose which buttons are active and where they sit on each tweet.
+> This script places quick-action buttons alongside the existing controls on every tweet on X (Twitter), removing the need to open dropdown menus to manage your feed. A mute shortcut also appears on user profile pages for fast silencing without leaving the page. A floating settings panel lets you choose which buttons are active, where they sit on each tweet, and how Not Interested actions behave after the initial click.
 
 ---
 
 ## 🎛 How to Access Features
 
-This script consists of **3 independent feature areas**, each accessible from different locations:
-
-| Icon | Feature Area | Feature | Where It Appears |
-|------|-------------|---------|-----------------|
-| 🚫 | Tweet Actions | Not Interested | On each tweet, For You tab only |
-| 🔇 | Tweet Actions | Mute user | On each tweet (enable in Settings) |
-| ⛔ | Tweet Actions | Block user | On each tweet (enable in Settings) |
-| 🔇 | Profile Actions | Mute user shortcut | On any user's profile page |
-| ⚙️ | Settings | Button configuration | Gear button, bottom-right corner of the page |
-
-> 💡 Each feature area operates independently. You do not need to enable all buttons.
+| Icon | Feature | Where It Appears |
+|------|---------|-----------------|
+| 🚫 | Not Interested | On each tweet, For You tab only |
+| 🔇 | Mute user | On each tweet (enable in Settings) |
+| ⛔ | Block user | On each tweet (enable in Settings) |
+| 🔇 | Profile page mute shortcut | On any user's profile page, next to the follow/unfollow controls |
+| ⚙️ | Settings panel | Gear button, bottom-right corner of any X page |
 
 ---
 
@@ -35,28 +30,27 @@ This script consists of **3 independent feature areas**, each accessible from di
 
 ### 🚫 Not Interested
 
-Signals to the algorithm that you dislike a post, without opening any menu.
+Signals to the algorithm that you dislike a post.
 
-- The button appears automatically on tweets in the **For You** tab.
-- It does not appear on other tabs (Following, Search, Bookmarks, Profiles) because the underlying action is not available there.
-- The action completes in the background — no visible dialog or confirmation is shown.
+- The button appears automatically on tweets in the **For You** tab. It does not appear on other tabs or pages because the underlying action is not available there.
+- When triggered, the tweet is dismissed from your feed and a brief confirmation is shown before it disappears.
+- What happens after the initial click depends on the **After Not Interested** setting. See the Settings section below for the available options.
 
 ### 🔇 Mute User
 
-Silently mutes the tweet's author so their posts stop appearing in your feed.
+Mutes the tweet's author so their posts stop appearing in your feed.
 
-- The button toggles its appearance once muting succeeds, confirming the action visually.
-- Muting is reversible — clicking the button again on a muted author's tweet will unmute them.
-- On a user's **profile page**, a dedicated mute shortcut appears alongside the existing follow/unfollow controls, separate from the tweet buttons.
-- If a user is already blocked, muting is unavailable and the button signals this with a brief animation.
+- The button visually confirms success once muting is complete.
+- Muting is reversible — clicking the button again on a muted author's tweet unmutes them immediately.
+- If the author is already blocked, the mute button indicates this and the action is skipped.
 
 ### ⛔ Block User
 
 Blocks the tweet's author so they can no longer see your posts or interact with your account.
 
-- A confirmation step is triggered automatically in the background — you do not need to interact with a dialog.
+- A confirmation step is handled automatically — no dialog requires your input.
 - The button changes its appearance once blocking is confirmed.
-- Blocking and muting are mutually exclusive: blocking an already-muted user will clear the mute state, reflected immediately in the button indicators.
+- Blocking and muting are mutually exclusive. Blocking an already-muted user clears the mute state, and the button indicators update immediately to reflect this.
 
 ### 🔇 Profile Page Mute Shortcut
 
@@ -67,34 +61,37 @@ Places a mute button directly on a user's profile, next to the standard action c
 
 ---
 
-## ⚙️ How to Open Settings
-
-Hover over the **bottom-right corner** of any X page. A blue gear (⚙️) button will become visible as you move your cursor toward that corner. Clicking it opens the settings panel. Clicking anywhere outside the panel closes it.
-
-> ⚠️ **Note on button placement:** The gear button currently sits very close to X's built-in Messages (chat) button in the bottom-right corner. This is a temporary position — a better location will be determined in a future update. If you need to open a direct message conversation, clicking the **outer edge** of the Messages button still works, as it is larger than the script's gear button.
-
----
-
 ## ⚠️ Known Limitations
 
-- **For You tab only:** The Not Interested button appears exclusively when you are on the For You (recommended) tab. Switching to Following, Search, Bookmarks, or a profile automatically removes it, as the underlying action does not exist in those contexts.
+- **For You tab only:** The Not Interested button appears exclusively when you are on the For You (recommended) tab. Switching to Following, Search, Bookmarks, or a profile removes it, as the action does not exist in those contexts. On tweet detail pages, the button is visible but inactive.
 
-- **Gear button overlaps with Messages button:** The settings gear button currently appears in the bottom-right corner, very close to X's native Messages button. This overlap is temporary. If the Messages button becomes difficult to click, aim for its outer edge — it is larger than the script's gear button and will still respond.
+- **Language-dependent mute detection:** Mute and unmute actions may not work correctly in all regional language settings. Coverage includes several major languages, but is not guaranteed to be complete.
 
-- **Regional mute detection:** Mute and unmute actions are identified by matching the text label of the menu item that appears behind the scenes. Detection covers several major languages but may not work correctly in all language and region settings not explicitly covered.
+- **Gear button placement:** The settings gear button appears in the bottom-right corner of the page, close to X's native Messages button. If the Messages button becomes difficult to click, aim for its outer edge — it is larger than the gear button and still responds there.
 
-- **Page load timing:** If X takes longer than ten seconds to fully render after navigation, the script will not inject buttons on that page load. Refreshing the page resolves this.
+- **Page load timing:** If X takes longer than ten seconds to fully render after navigation, the buttons will not appear on that page load. Refreshing the page resolves this.
 
 ---
 
-## ⚙️ Additional Features
+## ⚙️ Settings
 
 ### Button Visibility
 
 Each of the three action buttons can be turned on or off independently from the Settings panel.
 
 - **Not Interested** is enabled by default; Mute and Block are off by default.
-- Toggle any button at any time — the change takes effect immediately across all visible tweets without a page reload.
+- Changes take effect immediately across all visible tweets without a page reload.
+
+### After Not Interested
+
+Controls what happens after the initial Not Interested click, when X shows a follow-up prompt.
+
+- **Off** — no follow-up action is taken. The tweet is dismissed after the prompt disappears on its own.
+- **Reduce posts** — automatically selects "Show fewer posts from this user" from the follow-up prompt.
+- **Not relevant** — automatically selects "This post isn't relevant to me" from the follow-up prompt.
+- **⟡ Elegant Menu Mode ⟡** (default) — an inline menu appears near the Not Interested button, letting you choose between Reduce posts and Not relevant at the moment of each click. The menu closes automatically after 8 seconds if no choice is made, and the tweet is dismissed without a follow-up selection.
+
+The tweet is dismissed from the feed regardless of which option is chosen. Some post types show only a brief confirmation with no selectable options, in which case the follow-up step is skipped automatically.
 
 ### Button Position
 
@@ -110,10 +107,26 @@ The settings panel supports a dark and a light colour scheme.
 
 - The default theme is dark.
 - Toggle using the circular button in the top-right corner of the settings panel.
-- Your choice is saved locally and restored the next time you visit X.
+- Your choice is remembered and restored the next time you visit X.
+
+### Hover to Reveal
+
+Hides the action buttons until you point at the tweet.
+
+- **Off** by default — buttons stay always visible, matching the script's original behaviour.
+- When enabled, buttons fade in when your cursor is over the tweet's button area, and fade out otherwise. Buttons already showing a muted or blocked state stay visible regardless, so you can still spot accounts you've already acted on at a glance.
+- On touch devices without a real pointer (phones, tablets), this setting has no visible effect — buttons remain always visible, since there is no hover gesture to detect.
+
+### Panel Pin
+
+Keeps the settings panel open while you browse, instead of it closing when you click elsewhere.
+
+- Click the pin icon in the panel header to lock it open. The panel stays open across page navigation until you unpin it, so option changes can be compared across multiple tweets.
+- While pinned, clicking the ✕ button does not close the panel immediately — the first click flashes the pin as a reminder, and a second click brings up a confirmation before unpinning and closing.
+- Your pinned state is remembered and restored the next time you visit X.
 
 ---
 
-*This userscript is primarily maintained on Greasy Fork.*  
-*Built with AI assistance by a hobbyist developer. Bug fixes and updates may not be immediate.*  
-*Feedback is welcome. Responses may be assisted by translation tools if needed.*
+- This userscript is primarily maintained on Greasy Fork.
+- Built with AI assistance by a hobbyist developer. Bug fixes and updates may not be immediate.
+- Feedback is welcome. Responses may be assisted by translation tools if needed.
