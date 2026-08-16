@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.3.0.14
+// @version      1.3.1.1
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -41,6 +41,8 @@ const SETTINGS_DEFAULTS = {
     buttonPosition:    'header',
     panelTheme:        'dark',
     panelPinned:       false,
+    hoverReveal:       false,
+    hoverRevealSeen:   false,
 };
 
 let SETTINGS = { ...SETTINGS_DEFAULTS };
@@ -59,6 +61,8 @@ const sanitizeSettings = (raw) => {
         showMute:          !!merged.showMute,
         showBlock:         !!merged.showBlock,
         panelPinned:       !!merged.panelPinned,
+        hoverReveal:       !!merged.hoverReveal,
+        hoverRevealSeen:   !!merged.hoverRevealSeen,
     };
 };
 
@@ -77,6 +81,10 @@ const saveSettings = () => {
     } catch (e) {
         console.warn('[MTGA] Failed to save settings:', e);
     }
+};
+
+const syncHoverRevealToBody = () => {
+    document.body?.setAttribute('data-mtga-hover-reveal', SETTINGS.hoverReveal ? '1' : '0');
 };
 
 (function injectStyles() {
@@ -164,6 +172,30 @@ const saveSettings = () => {
             gap: 8px;
         }
 
+        @media (hover: hover) and (pointer: fine) {
+            
+            body[data-mtga-hover-reveal="1"] .mtga-header-group .mtga-btn:not(.mtga-active) {
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease;
+            }
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:hover .mtga-btn:not(.mtga-active),
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:has(~ *:hover) .mtga-btn:not(.mtga-active) {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            
+            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"] .mtga-btn:not(.mtga-active) {
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease;
+            }
+            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"]:hover .mtga-btn:not(.mtga-active) {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+
         @keyframes mtga-btn-in {
             from { opacity: 0; transform: scale(0.72); }
             to   { opacity: 1; transform: scale(1); }
@@ -200,6 +232,19 @@ const saveSettings = () => {
         #mtga-settings-gear:hover { opacity: 1; background-color: rgb(26,140,216); transform: rotate(30deg); }
         #mtga-settings-gear:focus { opacity: 1; outline: 2px solid rgb(29,155,240); outline-offset: 2px; }
         #mtga-settings-gear svg   { width: 20px; height: 20px; fill: currentColor; pointer-events: none; }
+        
+        #mtga-settings-gear.mtga-has-notice { opacity: 1; }
+        .mtga-notice-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: rgb(244, 33, 46);
+            border: 2px solid rgb(21, 32, 43);
+            pointer-events: none;
+        }
 
         #mtga-panel {
             position: fixed;
@@ -417,6 +462,19 @@ const saveSettings = () => {
         .mtga-toggle-label         { display: flex; align-items: center; gap: 10px; font-weight: 500; }
         .mtga-toggle-label svg     { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; color: rgb(113,118,123); }
         .mtga-toggle-desc          { font-size: 11px; margin-top: 2px; }
+        
+        .mtga-new-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 6px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            color: #fff;
+            background-color: rgb(29, 155, 240);
+            border-radius: 6px;
+            vertical-align: middle;
+        }
 
         .mtga-switch               { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
         .mtga-switch input         { opacity: 0; width: 0; height: 0; position: absolute; }
@@ -624,10 +682,11 @@ const SVG_MOON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-4.
 const SVG_AUTO_NI = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>`;
 const SVG_CLOSE   = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
 const SVG_COPY    = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+const SVG_EYE     = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5c3.79 0 7.17 2.13 8.82 5.5-1.65 3.37-5.03 5.5-8.82 5.5S4.83 15.37 3.18 12C4.83 8.63 8.21 6.5 12 6.5m0-2C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 5c1.38 0 2.5 1.12 2.5 2.5S13.38 14.5 12 14.5 9.5 13.38 9.5 12 10.62 9.5 12 9.5m0-2c-2.48 0-4.5 2.02-4.5 4.5s2.02 4.5 4.5 4.5 4.5-2.02 4.5-4.5-2.02-4.5-4.5-4.5z"/></svg>`;
 
 const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
     ? GM_info.script.version
-    : '1.3.0.14';
+    : '1.3.1.1';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -662,6 +721,7 @@ const makeTweetBtn = (cls, label, svg) => {
         if (btn.getAttribute('title') !== label)      btn.setAttribute('title', label);
     });
     guard.observe(btn, { attributes: true, attributeFilter: ['title', 'aria-label'] });
+    btn._mtgaGuard = guard;
     makeTweetBtn._registry?.register(btn, guard);
 
     return btn;
@@ -714,7 +774,10 @@ const addBtnToTweet = (tweet) => {
     const stamp        = `${pos}|${niState}`;
     if (tweet.getAttribute('data-mtga-stamped') === stamp) return;
 
-    tweet.querySelectorAll('.mtga-btn, .mtga-header-group').forEach(el => el.remove());
+    tweet.querySelectorAll('.mtga-btn, .mtga-header-group').forEach(el => {
+        el._mtgaGuard?.disconnect();
+        el.remove();
+    });
 
     const insertion = pos === 'header'
         ? getHeaderInsertionPoint(tweet)
@@ -1569,6 +1632,12 @@ const buildSettingsPanel = () => {
     gear.setAttribute('aria-label', 'Settings');
     gear.setAttribute('title', 'Settings');
     gear.innerHTML = SVG_GEAR;
+    if (!SETTINGS.hoverRevealSeen) {
+        gear.classList.add('mtga-has-notice');
+        const dot = document.createElement('span');
+        dot.className = 'mtga-notice-dot';
+        gear.appendChild(dot);
+    }
     document.body.appendChild(gear);
 
     const panel = document.createElement('div');
@@ -1632,6 +1701,9 @@ const buildSettingsPanel = () => {
             <button class="mtga-radio-btn ${SETTINGS.buttonPosition === 'header'    ? 'mtga-radio-active' : ''}" data-pos="header">Header</button>
             <button class="mtga-radio-btn ${SETTINGS.buttonPosition === 'actionbar' ? 'mtga-radio-active' : ''}" data-pos="actionbar">Action Bar</button>
         </div>
+        <hr class="mtga-divider">
+        <span class="mtga-section-label">Display</span>
+        ${makeToggleRow('hoverReveal', SVG_EYE, 'Hover to Reveal', 'Hide buttons until you hover over the tweet — always visible on touch devices', !SETTINGS.hoverRevealSeen)}
         <p class="mtga-panel-footer">Twitter Action Bar Extended · v${SCRIPT_VERSION}</p>
     `;
     document.body.appendChild(panel);
@@ -1640,10 +1712,20 @@ const buildSettingsPanel = () => {
         panel.classList.add('mtga-panel-open');
     }
 
+    const clearHoverRevealNotice = () => {
+        if (SETTINGS.hoverRevealSeen) return;
+        SETTINGS.hoverRevealSeen = true;
+        saveSettings();
+        gear.classList.remove('mtga-has-notice');
+        gear.querySelector('.mtga-notice-dot')?.remove();
+        panel.querySelector('.mtga-new-badge')?.remove();
+    };
+
     panel.querySelectorAll('.mtga-switch input').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             SETTINGS[checkbox.dataset.key] = checkbox.checked;
             saveSettings();
+            syncHoverRevealToBody();
             refreshAllTweets();
         });
     });
@@ -1726,6 +1808,7 @@ const buildSettingsPanel = () => {
     panel.querySelector('.mtga-panel-close').addEventListener('click', () => {
         if (!SETTINGS.panelPinned) {
             panel.classList.remove('mtga-panel-open');
+            clearHoverRevealNotice();
             return;
         }
         unpinCloseAttempts++;
@@ -1749,10 +1832,14 @@ const buildSettingsPanel = () => {
             saveSettings();
             applyPinVisualState(false, false);
             panel.classList.remove('mtga-panel-open');
+            clearHoverRevealNotice();
         }
     });
 
-    gear.addEventListener('click', () => panel.classList.toggle('mtga-panel-open'));
+    gear.addEventListener('click', () => {
+        const isNowOpen = panel.classList.toggle('mtga-panel-open');
+        if (!isNowOpen) clearHoverRevealNotice();
+    });
 
     document.addEventListener('click', (e) => {
         if (panel.classList.contains('mtga-panel-open')
@@ -1760,20 +1847,22 @@ const buildSettingsPanel = () => {
             && !panel.contains(e.target)
             && !gear.contains(e.target)) {
             panel.classList.remove('mtga-panel-open');
+            clearHoverRevealNotice();
         }
     });
 };
 
-const makeToggleRow = (key, svgIcon, label, desc) => {
+const makeToggleRow = (key, svgIcon, label, desc, showBadge = false) => {
     if (!Object.prototype.hasOwnProperty.call(SETTINGS_DEFAULTS, key)) {
         console.warn('[MTGA] makeToggleRow: rejected unknown key', key);
         return '';
     }
     const checked = SETTINGS[key] ? 'checked' : '';
+    const badge   = showBadge ? '<span class="mtga-new-badge">NEW</span>' : '';
     return `
         <div class="mtga-toggle-row">
             <div>
-                <div class="mtga-toggle-label">${svgIcon}<span>${label}</span></div>
+                <div class="mtga-toggle-label">${svgIcon}<span>${label}</span>${badge}</div>
                 <div class="mtga-toggle-desc">${desc}</div>
             </div>
             <label class="mtga-switch" aria-label="Toggle ${label}">
@@ -1853,6 +1942,7 @@ const observeTweets = () => {
 
     setTabStatusToBody();
     isProfile();
+    syncHoverRevealToBody();
     addBtnToTweets();
     buildSettingsPanel();
 
