@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.3.1.1
+// @version      1.3.2.0
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -171,26 +171,76 @@ const syncHoverRevealToBody = () => {
             flex-direction: row;
             gap: 8px;
         }
+        
+        .mtga-actionbar-group {
+            display: inline-flex;
+            align-items: center;
+            flex-direction: row;
+            flex-shrink: 0;
+            gap: 2px;
+            margin-left: 4px;
+        }
+        .mtga-actionbar-group .mtga-btn {
+            width: 30px;
+            height: 30px;
+        }
+        .mtga-actionbar-group .mtga-btn svg {
+            width: 17px;
+            height: 17px;
+        }
 
         @media (hover: hover) and (pointer: fine) {
-            
-            body[data-mtga-hover-reveal="1"] .mtga-header-group .mtga-btn:not(.mtga-active) {
+
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:not(:has(.mtga-active)) {
+                max-width: 0;
+                overflow: hidden;
+                gap: 0;
                 opacity: 0;
                 pointer-events: none;
-                transition: opacity 0.15s ease;
+                
+                transition: max-width 0.34s cubic-bezier(0.16,1,0.3,1), opacity 0.26s ease;
             }
-            body[data-mtga-hover-reveal="1"] .mtga-header-group:hover .mtga-btn:not(.mtga-active),
-            body[data-mtga-hover-reveal="1"] .mtga-header-group:has(~ *:hover) .mtga-btn:not(.mtga-active) {
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:not(:has(.mtga-active)):hover,
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:not(:has(.mtga-active)):has(~ *:hover) {
+                max-width: 160px;
+                gap: 8px;
                 opacity: 1;
                 pointer-events: auto;
             }
             
-            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"] .mtga-btn:not(.mtga-active) {
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:has(.mtga-active) .mtga-btn:not(.mtga-active) {
                 opacity: 0;
                 pointer-events: none;
                 transition: opacity 0.15s ease;
             }
-            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"]:hover .mtga-btn:not(.mtga-active) {
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:has(.mtga-active):hover .mtga-btn:not(.mtga-active),
+            body[data-mtga-hover-reveal="1"] .mtga-header-group:has(.mtga-active):has(~ *:hover) .mtga-btn:not(.mtga-active) {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            
+            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"] .mtga-actionbar-group:not(:has(.mtga-active)) {
+                max-width: 0;
+                margin-left: 0;
+                overflow: hidden;
+                opacity: 0;
+                pointer-events: none;
+                
+                transition: max-width 0.34s cubic-bezier(0.16,1,0.3,1), margin-left 0.34s cubic-bezier(0.16,1,0.3,1), opacity 0.26s ease;
+            }
+            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"]:hover .mtga-actionbar-group:not(:has(.mtga-active)) {
+                max-width: 120px;
+                margin-left: 4px;
+                opacity: 1;
+                pointer-events: auto;
+            }
+            
+            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"] .mtga-actionbar-group:has(.mtga-active) .mtga-btn:not(.mtga-active) {
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease;
+            }
+            body[data-mtga-hover-reveal="1"] div[role="group"][id*="id__"]:hover .mtga-actionbar-group:has(.mtga-active) .mtga-btn:not(.mtga-active) {
                 opacity: 1;
                 pointer-events: auto;
             }
@@ -686,7 +736,7 @@ const SVG_EYE     = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.
 
 const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
     ? GM_info.script.version
-    : '1.3.1.1';
+    : '1.3.1.3';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -774,7 +824,7 @@ const addBtnToTweet = (tweet) => {
     const stamp        = `${pos}|${niState}`;
     if (tweet.getAttribute('data-mtga-stamped') === stamp) return;
 
-    tweet.querySelectorAll('.mtga-btn, .mtga-header-group').forEach(el => {
+    tweet.querySelectorAll('.mtga-btn, .mtga-header-group, .mtga-actionbar-group').forEach(el => {
         el._mtgaGuard?.disconnect();
         el.remove();
     });
@@ -815,13 +865,16 @@ const addBtnToTweet = (tweet) => {
 };
 
 const injectToActionBar = (navAction, niState = 'hidden') => {
+    const group = document.createElement('div');
+    group.classList.add('mtga-actionbar-group');
     if (SETTINGS.showNotInterested && niState !== 'hidden') {
         const niBtn = makeTweetBtn('mtga-not-interested', 'Not Interested', SVG_NOT_INTERESTED);
         if (niState === 'dim') { niBtn.classList.add('mtga-disabled'); niBtn.setAttribute('aria-disabled', 'true'); }
-        navAction.appendChild(niBtn);
+        group.appendChild(niBtn);
     }
-    if (SETTINGS.showMute)  navAction.appendChild(makeTweetBtn('mtga-mute',  'Mute',  SVG_MUTE));
-    if (SETTINGS.showBlock) navAction.appendChild(makeTweetBtn('mtga-block', 'Block', SVG_BLOCK));
+    if (SETTINGS.showMute)  group.appendChild(makeTweetBtn('mtga-mute',  'Mute',  SVG_MUTE));
+    if (SETTINGS.showBlock) group.appendChild(makeTweetBtn('mtga-block', 'Block', SVG_BLOCK));
+    if (group.childElementCount > 0) navAction.appendChild(group);
 };
 
 const addBtnToTweets = () => {
@@ -1248,6 +1301,7 @@ const getCardRow = (tweet) => {
 const OWN_UI_SELECTORS = [
     'div[role="group"][id*="id__"]',
     '.mtga-header-group',
+    '.mtga-actionbar-group',
 ];
 const THIRD_PARTY_SELECTORS_RAW = [
     '.my-grok-robot-btn',
