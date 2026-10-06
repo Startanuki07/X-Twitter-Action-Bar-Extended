@@ -4,7 +4,7 @@
 // @homepageURL  https://github.com/Startanuki07
 // @license      MIT
 // @author       Star_tanuki07
-// @version      1.3.2.0
+// @version      1.3.2.2
 // @description     Adds Not Interested, Mute, and Block buttons directly to every tweet — manage your feed without opening dropdown menus. Includes a one-click mute shortcut on profile pages and a settings panel to choose which buttons appear and where.
 // @description:zh-TW  在每則推文上直接新增「不感興趣、靜音、封鎖」按鈕，無需開啟下拉選單即可一鍵管理動態牆。另附個人頁面靜音捷徑，以及可自訂按鈕顯示與擺放位置的設定面板。
 // @description:zh-CN  在每条推文上直接添加「不感兴趣、静音、屏蔽」按钮，无需打开下拉菜单即可一键管理时间线。附带个人页面静音快捷方式，以及可自定义按钮显示与位置的设置面板。
@@ -736,7 +736,7 @@ const SVG_EYE     = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.
 
 const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info?.script?.version)
     ? GM_info.script.version
-    : '1.3.1.3';
+    : '1.3.2.1';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -818,7 +818,8 @@ const addBtnToTweet = (tweet) => {
     if (!tweet) return;
 
     const pos = SETTINGS.buttonPosition;
-    const isForYouTab  = document.body.getAttribute('data-make-twitter-great-again') === '1';
+    const isForYouTab  = document.body.getAttribute('data-make-twitter-great-again') === '1'
+                          && !document.body.hasAttribute('data-profile');
     const isDetailPage = /\/status\/\d+/.test(window.location.pathname);
     const niState      = isForYouTab ? (isDetailPage ? 'dim' : 'active') : 'hidden';
     const stamp        = `${pos}|${niState}`;
@@ -2012,7 +2013,8 @@ const observeTweets = () => {
         } else if (e.target.closest('.mtga-mute')) {
             e.stopPropagation();
             mtgaExecuting = true;
-            if (document.body.getAttribute('data-profile')) {
+            const muteBtn = e.target.closest('.mtga-mute');
+            if (!muteBtn.closest('article') && document.body.getAttribute('data-profile')) {
                 handleProfileMuteClick().finally(() => { mtgaExecuting = false; });
             } else {
                 handleBtnClick(e, MUTE_PATH).finally(() => { mtgaExecuting = false; });
